@@ -96,5 +96,14 @@ userSchema.methods.generateRefreshToken = function () {
     }
   );
 };
+// 📧 Generate Email Verification Token
+userSchema.methods.generateEmailToken = function () {
+  return jwt.sign(
+    { _id: this._id },
+    process.env.EMAIL_VERIFICATION_SECRET,
+    { expiresIn: "1h" }
+  );
+};
+
 
 export const User = mongoose.model("User", userSchema);

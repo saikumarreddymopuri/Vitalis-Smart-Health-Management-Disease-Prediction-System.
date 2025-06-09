@@ -5,10 +5,11 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import fs from "fs";
 import jwt from "jsonwebtoken";
+import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
 
 // REGISTER USER (Manual)
-export const registerUser = asyncHandler(async (req, res) => {
-  const { fullName, username, email, password,phone } = req.body;
+  export const registerUser = asyncHandler(async (req, res) => {
+  const { fullName, username, email, password, phone } = req.body;
   const avatarLocalPath = req.file?.path;
 
   if (!fullName || !username || !email || !password || !avatarLocalPath || !phone) {
@@ -33,8 +34,17 @@ export const registerUser = asyncHandler(async (req, res) => {
     email,
     password,
     phone,
-    avatar: avatarUpload.url
+    avatar: avatarUpload.url,
   });
+
+  // Generate email verification token
+  const emailToken = user.generateEmailToken();
+
+  // 🥳 Send Welcome Email
+  await sendWelcomeEmail(user.email, user.fullName);
+
+  // Send verification email
+  await sendVerificationEmail(user.email, emailToken);
 
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
@@ -57,9 +67,17 @@ export const registerUser = asyncHandler(async (req, res) => {
       sameSite: "None",
     })
     .json(
-      new ApiResponse(201, { user: createdUser, accessToken }, "User Registered Successfully")
+      new ApiResponse(
+        201,
+        {
+          user: createdUser,
+          accessToken,
+        },
+        "User Registered Successfully. Please check your email to verify your account."
+      )
     );
 });
+
 
 // LOGIN USER (Manual)
 export const loginUser = asyncHandler(async (req, res) => {
@@ -157,7 +175,7 @@ export const refreshAccessToken = async (req, res, next) => {
     }
 
     // Generate new access token
-    const accessToken = user.generateaccessToken();
+    const accessToken = user.generateAccessToken();
 
     res.status(200).json(new ApiResponse(200, { accessToken }, "Access token refreshed"));
   } catch (error) {
