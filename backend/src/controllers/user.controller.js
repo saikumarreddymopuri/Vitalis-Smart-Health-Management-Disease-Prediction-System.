@@ -44,7 +44,13 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
   await sendWelcomeEmail(user.email, user.fullName);
 
   // Send verification email
-  await sendVerificationEmail(user.email, emailToken);
+  //await sendVerificationEmail(user.email, emailToken);
+// Construct full verification link using your IP
+const verificationLink = `http://192.168.0.108:4000/api/v1/users/verify/${emailToken}`;
+
+// Send verification email
+await sendVerificationEmail(user.email, verificationLink);
+
 
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
@@ -78,8 +84,110 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
     );
 });
 
+// Verify Email
+ 
+// export const verifyEmail = asyncHandler(async (req, res) => {
+//   const { token } = req.params;
+
+//   if (!token) {
+//     throw new ApiError(400, "Verification token is required");
+//   }
+
+//   try {
+//     const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET);
+//     const user = await User.findById(decoded._id);
+
+//     if (!user) {
+//       throw new ApiError(404, "User not found");
+//     }
+
+//     if (user.isVerified) {
+//       return res.send(`<h2 style="text-align:center;color:green;">Email already verified ✅</h2>`);
+//     }
+
+//     user.isVerified = true;
+//     await user.save();
+
+//     res.send(`<h2 style="text-align:center;color:green;">Email verified successfully ✅</h2>`);
+//   } catch (error) {
+//     throw new ApiError(400, "Invalid or expired token");
+//   }
+// });
+
+export const verifyEmail = asyncHandler(async (req, res) => {
+  const { token } = req.params;
+
+  try {
+    //console.log("Received Token:", token); // 🧪 For debugging
+
+    const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET);
+    //console.log("Decoded ID:", decoded._id); // 🧪 For debugging
+
+    const user = await User.findById(decoded._id);
+    if (!user) {
+      throw new ApiError(400, "User not found");
+    }
+
+    if (user.isVerified) {
+      return res.status(200).json({ message: "Email already verified" });
+    }
+
+    user.isVerified = true;
+    await user.save();
+
+    res.status(200).json({ message: "Email verified successfully" });
+  } catch (err) {
+    //console.error("Verification Error:", err.message); // 🧪
+    throw new ApiError(400, "Invalid or expired token");
+  }
+});
+
 
 // LOGIN USER (Manual)
+// export const loginUser = asyncHandler(async (req, res) => {
+//   const { email, password } = req.body;
+
+//   if (!email || !password) {
+//     throw new ApiError(400, "Email and password are required");
+//   }
+
+//   const user = await User.findOne({ email });
+
+//   if (!user) {
+//     throw new ApiError(404, "User not found");
+//   }
+
+//   const isPasswordValid = await user.isPasswordCorrect(password);
+
+//   if (!isPasswordValid) {
+//     throw new ApiError(401, "Invalid email or password");
+//   }
+
+//   const accessToken = user.generateAccessToken();
+//   const refreshToken = user.generateRefreshToken();
+
+//   user.refreshToken = refreshToken;
+//   await user.save({ validateBeforeSave: false });
+
+//   const userData = await User.findById(user._id).select("-password -refreshToken");
+
+//   res
+//     .status(200)
+//     .cookie("accessToken", accessToken, {
+//       httpOnly: true,
+//       secure: true,
+//       sameSite: "None",
+//     })
+//     .cookie("refreshToken", refreshToken, {
+//       httpOnly: true,
+//       secure: true,
+//       sameSite: "None",
+//     })
+//     .json(
+//       new ApiResponse(200, { user: userData, accessToken }, "Login successful")
+//     );
+// });
+
 export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -97,6 +205,11 @@ export const loginUser = asyncHandler(async (req, res) => {
 
   if (!isPasswordValid) {
     throw new ApiError(401, "Invalid email or password");
+  }
+
+  // 🛑 Check if email is verified
+  if (!user.isVerified) {
+    return res.status(403).json(new ApiResponse(403, null, "Email not verified"));
   }
 
   const accessToken = user.generateAccessToken();
@@ -123,6 +236,8 @@ export const loginUser = asyncHandler(async (req, res) => {
       new ApiResponse(200, { user: userData, accessToken }, "Login successful")
     );
 });
+
+
 
 
 // LOGOUT USER

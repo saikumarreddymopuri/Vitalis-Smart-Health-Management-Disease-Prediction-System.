@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 
 export const sendVerificationEmail = async (email, verificationLink) => {
   const mailOptions = {
-    from: process.env.SMTP_USER,
+    from: process.env.MAIL_USERNAME,
     to: email,
     subject: "Email Verification - HospMan",
     html: `<h2>Welcome to HospMan!</h2>
@@ -24,7 +24,7 @@ export const sendVerificationEmail = async (email, verificationLink) => {
 
 export const sendWelcomeEmail = async (email, name) => {
   const mailOptions = {
-    from: process.env.SMTP_USER,
+    from: process.env.MAIL_USERNAME,
     to: email,
     subject: "Welcome to HospMan!",
     html: `<h2>Hello ${name},</h2>

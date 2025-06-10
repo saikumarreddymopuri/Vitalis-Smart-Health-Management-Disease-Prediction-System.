@@ -35,8 +35,8 @@ const userSchema = new Schema(
     },
     role: {
       type: String,
-      enum: ["patient", "admin"],
-      default: "patient",
+      enum: ["User", "Admin","Operator"],
+      default: "User",
     },
     avatar: {
       type: String, // Cloudinary URL
@@ -101,7 +101,7 @@ userSchema.methods.generateEmailToken = function () {
   return jwt.sign(
     { _id: this._id },
     process.env.EMAIL_VERIFICATION_SECRET,
-    { expiresIn: "1h" }
+    { expiresIn: "2d" }
   );
 };
 
