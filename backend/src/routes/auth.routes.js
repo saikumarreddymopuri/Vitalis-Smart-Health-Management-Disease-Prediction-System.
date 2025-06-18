@@ -28,7 +28,7 @@ router.get("/google/callback",
         httpOnly: true,
         sameSite: "Lax"
       })
-      .redirect(`${process.env.CLIENT_URL}/dashboard`);
+      .redirect(`${process.env.CLIENT_URL}/google-success?from=google`);
   }
 );
 

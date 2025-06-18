@@ -9,7 +9,7 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
 
 // REGISTER USER (Manual)
   export const registerUser = asyncHandler(async (req, res) => {
-  const { fullName, username, email, password, phone } = req.body;
+  const { fullName, username, email, password, phone, role } = req.body;
   const avatarLocalPath = req.file?.path;
 
   if (!fullName || !username || !email || !password || !avatarLocalPath || !phone) {
@@ -34,6 +34,7 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
     email,
     password,
     phone,
+    role: role || "User", // Default to "User" if not provided
     avatar: avatarUpload.url,
   });
 
@@ -46,7 +47,7 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
   // Send verification email
   //await sendVerificationEmail(user.email, emailToken);
 // Construct full verification link using your IP
-const verificationLink = `http://192.168.0.108:4000/api/v1/users/verify/${emailToken}`;
+const verificationLink = `http://10.1.70.36:4000/api/v1/users/verify/${emailToken}`;
 
 // Send verification email
 await sendVerificationEmail(user.email, verificationLink);
@@ -237,6 +238,14 @@ export const loginUser = asyncHandler(async (req, res) => {
     );
 });
 
+//get current user
+export const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("-password -refreshToken");
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  res.status(200).json(new ApiResponse(200, { user }));
+});
 
 
 

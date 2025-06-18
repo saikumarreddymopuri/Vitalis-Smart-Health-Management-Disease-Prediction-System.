@@ -10,7 +10,7 @@ const Register = () => {
     email: "",
     password: "",
     phone: "",
-    role: "user",
+    role: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -127,12 +127,15 @@ const Register = () => {
           name="role"
           value={formData.role}
           onChange={handleChange}
+          required
           className="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-        >
-          <option value="user">User</option>
-          <option value="operator">Operator</option>
-          <option value="admin">Admin</option>
+          >
+          <option value="">Select Role</option>
+          <option value="User">User</option>        {/* ✅ Exact casing as per backend enum */}
+          <option value="Operator">Operator</option>
+          <option value="Admin">Admin</option>
         </select>
+
 
         <div className="flex items-center space-x-4">
           <input
@@ -197,7 +200,7 @@ const Register = () => {
 
         <p className="text-center text-sm mt-2">
           Already have an account?{" "}
-          <Link to="/login" className="text-blue-700 hover:underline font-semibold">
+          <Link to="/" className="text-blue-700 hover:underline font-semibold">
             Login
           </Link>
         </p>

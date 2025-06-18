@@ -1,13 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { Link, useNavigate } from "react-router-dom";
+import { UserContext } from "../../context/UserContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
+  //const { setUser } = useContext(UserContext);
   const navigate = useNavigate();
+
+  // Just to verify component is rendering
+  useEffect(() => {
+    console.log("🚀 Login component mounted");
+  }, []);
 
   const handleGoogleLogin = () => {
     window.open("http://localhost:4000/api/v1/auth/google", "_self");
@@ -15,6 +22,8 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    console.log("🧠 handleLogin called");
+
     if (!email || !password) {
       setErrorMsg("All fields are required.");
       return;
@@ -31,28 +40,42 @@ const Login = () => {
       const data = await res.json();
 
       if (res.status === 403 && data.message === "Email not verified") {
-        // Redirect to email verification page
         navigate("/verify-email", { state: { email } });
         return;
       }
 
-      if (!res.ok || !data.user) {
-      setErrorMsg(data.message || "Login failed");
-      return;
+      if (!res.ok || !data.data?.user) {
+        setErrorMsg(data.data?.message || "Login failed");
+        return;
       }
 
-      // 🎯 Redirect based on role
-      const userRole = data.user?.role;
-      if (userRole === "admin") {
-        navigate("/admin/dashboard");
-      } else if (userRole === "operator") {
-        navigate("/operator/dashboard");
-      } else {
-        navigate("/user/dashboard");
-      }
+      console.log("✅ Login successful. Setting user:", data.data?.user);
+
+      // // Set user in localStorage and context
+      // localStorage.setItem("user", JSON.stringify(data.data?.user));
+      // setUser(data.data?.user);
+
+      // // Give context time to update (optional delay if needed)
+      // setTimeout(() => {
+      //   navigate("/dashboard");
+      //   console.log("➡️ Redirected to /dashboard");
+      // }, 50);
+
+      // after login and getting user from backend
+const user = data.data.user;
+localStorage.setItem("user", JSON.stringify(user));
+
+if (user.role === "Admin") {
+  navigate("/admin-dashboard");
+} else if (user.role === "Operator") {
+  navigate("/operator-dashboard");
+} else {
+  navigate("/user-dashboard");
+}
+
 
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("❌ Login error:", err);
       setErrorMsg("Something went wrong");
     }
   };
@@ -112,6 +135,10 @@ const Login = () => {
 };
 
 export default Login;
+
+
+
+
 
 
 
