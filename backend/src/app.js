@@ -6,6 +6,10 @@ import authRoutes from './routes/auth.routes.js';
 import passport from "passport";
 import session from "express-session";
 import "./controllers/auth.controller.js";
+import symptomRoutes from "./routes/symptom.routes.js";
+
+
+
 
 
 const app = express()
@@ -37,6 +41,8 @@ app.use("/api/v1/users", userRoutes);
 
 // After other routes like userRoutes
 app.use("/api/v1/auth", authRoutes);
+
+app.use("/api/symptoms", symptomRoutes);
 
  
 export { app }

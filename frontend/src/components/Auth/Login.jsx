@@ -63,7 +63,10 @@ const Login = () => {
 
       // after login and getting user from backend
 const user = data.data.user;
+const token = data.data.token;
 localStorage.setItem("user", JSON.stringify(user));
+localStorage.setItem("token", token);
+//localStorage.setItem("token", data.data.token);
 
 if (user.role === "Admin") {
   navigate("/admin-dashboard");
