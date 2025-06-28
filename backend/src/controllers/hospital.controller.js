@@ -72,3 +72,19 @@ export const rejectHospital = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, null, "Hospital request rejected and removed"));
 });
+
+
+// @desc    Get all approved hospitals added by the logged-in operator
+// @route   GET /api/hospitals/operator-approved
+export const getApprovedHospitalsForOperator = asyncHandler(async (req, res) => {
+  const operatorId = req.user._id;
+
+  const hospitals = await Hospital.find({
+    createdBy: operatorId,
+    is_verified: true, // ✅ Only approved ones
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, hospitals, "Approved hospitals fetched"));
+});

@@ -1,6 +1,6 @@
 // routes/hospital.routes.js
 import express from "express";
-import { createHospital , getPendingHospitals, verifyHospital, rejectHospital} from "../controllers/hospital.controller.js";
+import { createHospital , getPendingHospitals, verifyHospital, rejectHospital, getApprovedHospitalsForOperator} from "../controllers/hospital.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -13,6 +13,10 @@ router.get("/pending", verifyJWT, getPendingHospitals);
 // Admin verifies a hospital
 router.put("/:id/verify", verifyJWT, verifyHospital);
 router.delete("/:id", verifyJWT, rejectHospital);
+
+// Get hospitals added by operator AND approved by admin
+router.get("/operator-approved", verifyJWT, getApprovedHospitalsForOperator);
+
 
 
 

@@ -14,7 +14,7 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role }) => {
     Operator: [
       { label: "Profile", tab: "profile" },
       { label: "🏥 Add Hospital", tab: "addHospital" },
-      { label: "Manage Beds", tab: "manageBeds" },
+      { label: "Manage Beds", tab: "addBeds" },
       { label: "Manage Transport", tab: "manageTransport" },
     ],
     Admin: [

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState ,useEffect } from "react";
 import Header from "../components/Layout/Header.jsx";
 import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
@@ -14,6 +14,40 @@ const OperatorDashboard = () => {
   const [specialization, setSpecialization] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
+  // Bed addition
+  const [bedForm, setBedForm] = useState({
+    hospital_id: "",
+    bed_type: "",
+    quantity: "", // Removed as we are using a separate state for quantity
+    is_available: true,
+    price_per_day: "",
+  });
+  const [quantity, setQuantity] = useState(""); // New state for quantity
+  const [approvedHospitals, setApprovedHospitals] = useState([]);
+
+
+
+// Fetch approved hospitals 
+  useEffect(() => {
+  const fetchApprovedHospitals = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:4000/api/hospitals/operator-approved", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      setApprovedHospitals(data.data || []);
+    } catch (err) {
+      console.error("❌ Failed to fetch approved hospitals", err);
+    }
+  };
+
+  fetchApprovedHospitals();
+}, []);
+
 
 
   // ✅ Logs outside JSX — safe
@@ -129,12 +163,129 @@ const OperatorDashboard = () => {
 
 
         {/* Manage Beds */}
-        {activeTab === "manageBeds" && (
-          <div className="bg-white p-6 rounded shadow text-center">
-            <h2 className="text-xl font-bold mb-4">Manage Beds</h2>
-            <p>🛏️ Bed availability tools will be integrated here soon...</p>
+        {activeTab === "addBeds" && (
+          <div className="bg-white p-6 rounded shadow">
+            <h2 className="text-xl font-bold text-center mb-4">➕ Add Bed</h2>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const token = localStorage.getItem("token");
+
+                const formWithQuantity = {
+                  ...bedForm,
+                  quantity: parseInt(quantity), // ✅ add quantity manually
+                };
+
+                try {
+                  const res = await fetch("http://localhost:4000/api/beds", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(formWithQuantity),
+                  });
+
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert("✅ Bed added successfully");
+                    setBedForm({
+                      hospital_id: "",
+                      bed_type: "",
+                      quantity: "",
+                      is_available: true,
+                      price_per_day: "",
+                    });
+                    setQuantity(""); // ✅ clear quantity input
+                  } else {
+                    alert(data.message || "❌ Failed to add bed");
+                  }
+                } catch (err) {
+                  console.error("Error submitting bed:", err);
+                }
+              }}
+              className="space-y-4"
+            >
+
+              {/* Hospital Select */}
+              <select
+                className="w-full p-2 border rounded"
+                value={bedForm.hospital_id}
+                onChange={(e) =>
+                  setBedForm({ ...bedForm, hospital_id: e.target.value })
+                }
+                required
+              >
+                <option value="">Select Approved Hospital</option>
+                {approvedHospitals.map((hospital) => (
+                  <option key={hospital._id} value={hospital._id}>
+                    {hospital.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Bed Type */}
+              <select
+                className="w-full p-2 border rounded"
+                value={bedForm.bed_type}
+                onChange={(e) =>
+                  setBedForm({ ...bedForm, bed_type: e.target.value })
+                }
+                required
+              >
+                <option value="">Select Bed Type</option>
+                <option value="general">General</option>
+                <option value="icu">ICU</option>
+                <option value="ventilator">Ventilator</option>
+                <option value="deluxe">Deluxe</option>
+              </select>
+              {/* Quantity */}
+              <input
+                type="number"
+                placeholder="Number of Beds"
+                className="w-full p-2 border rounded"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                 
+              />
+
+
+
+              {/* Price */}
+              <input
+                type="number"
+                placeholder="Price per day"
+                className="w-full p-2 border rounded"
+                value={bedForm.price_per_day}
+                onChange={(e) =>
+                  setBedForm({ ...bedForm, price_per_day: e.target.value })
+                }
+                required
+              />
+
+              {/* Availability Checkbox */}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={bedForm.is_available}
+                  onChange={(e) =>
+                    setBedForm({ ...bedForm, is_available: e.target.checked })
+                  }
+                />
+                Available
+              </label>
+
+              <button
+                type="submit"
+                className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
+              >
+                Add Bed
+              </button>
+            </form>
           </div>
         )}
+
 
         {/* Manage Transport */}
         {activeTab === "manageTransport" && (

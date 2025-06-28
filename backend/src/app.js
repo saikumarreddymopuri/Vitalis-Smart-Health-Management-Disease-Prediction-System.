@@ -8,6 +8,9 @@ import session from "express-session";
 import "./controllers/auth.controller.js";
 import symptomRoutes from "./routes/symptom.routes.js";
 import hospitalRoutes from "./routes/hospital.routes.js";
+import bedRoutes from "./routes/bed.routes.js";
+
+
 
 
 
@@ -48,6 +51,8 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/symptoms", symptomRoutes);
 
 app.use("/api/hospitals", hospitalRoutes);
+
+app.use("/api/beds", bedRoutes);
 
  
 export { app }
