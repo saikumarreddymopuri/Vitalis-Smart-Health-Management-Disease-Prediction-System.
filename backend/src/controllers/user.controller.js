@@ -47,7 +47,7 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
   // Send verification email
   //await sendVerificationEmail(user.email, emailToken);
 // Construct full verification link using your IP
-const verificationLink = `http://192.168.68.108:4000/api/v1/users/verify/${emailToken}`;
+const verificationLink = `http://192.168.0.108:4000/api/v1/users/verify/${emailToken}`;
 
 // Send verification email
 await sendVerificationEmail(user.email, verificationLink);

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../components/Layout/Header.jsx";
 import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
@@ -7,6 +7,69 @@ const AdminDashboard = () => {
   const [isOpen, setIsOpen] = useState(false);
   const user = JSON.parse(localStorage.getItem("user"));
   const [activeTab, setActiveTab] = useState("");
+  const [pendingHospitals, setPendingHospitals] = useState([]);
+  const token = localStorage.getItem("token");
+
+
+  // Fetch pending hospitals
+useEffect(() => {
+  const fetchPendingHospitals = async () => {
+    if (activeTab === "pending") {
+      try {
+        const res = await fetch("http://localhost:4000/api/hospitals/pending", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        setPendingHospitals(data.data || []);
+        console.log("📥 Pending hospitals:", data.data);
+      } catch (err) {
+        console.error("❌ Error fetching pending:", err);
+      }
+    }
+  };
+
+  fetchPendingHospitals();
+}, [activeTab]);
+
+
+const handleApprove = async (id) => {
+  try {
+    const res = await fetch(`http://localhost:4000/api/hospitals/${id}/verify`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
+      alert("✅ Approved successfully");
+    }
+  } catch (err) {
+    console.error("❌ Error approving:", err);
+  }
+};
+
+const handleReject = async (id) => {
+  try {
+    const res = await fetch(`http://localhost:4000/api/hospitals/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.ok) {
+      setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
+      alert("❌ Rejected & removed");
+    }
+  } catch (err) {
+    console.error("❌ Error rejecting:", err);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -45,6 +108,44 @@ const AdminDashboard = () => {
             <p><strong>Role:</strong> {user.role}</p>
           </div>
         )}
+
+
+        {activeTab === "pending" && (
+          <div className="bg-white p-6 rounded shadow">
+            <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">Pending Hospital Requests</h2>
+
+            {pendingHospitals.length === 0 ? (
+              <p className="text-center text-gray-500">No pending requests 🎉</p>
+            ) : (
+              <ul className="space-y-4">
+                {pendingHospitals.map((hospital) => (
+                  <li key={hospital._id} className="border p-4 rounded shadow">
+                    <h3 className="font-bold text-lg">{hospital.name}</h3>
+                    <p><strong>City:</strong> {hospital.city}</p>
+                    <p><strong>Contact:</strong> {hospital.contact_number}</p>
+                    <p><strong>Specialization:</strong> {hospital.specialization_offered}</p>
+
+                    <div className="mt-3 flex gap-4">
+                      <button
+                        onClick={() => handleApprove(hospital._id)}
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                      >
+                        ✅ Approve
+                      </button>
+                      <button
+                        onClick={() => handleReject(hospital._id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                      >
+                        ❌ Reject
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
 
         {activeTab === "users" && (
           <div className="bg-white p-6 rounded shadow text-center">

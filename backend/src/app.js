@@ -7,6 +7,9 @@ import passport from "passport";
 import session from "express-session";
 import "./controllers/auth.controller.js";
 import symptomRoutes from "./routes/symptom.routes.js";
+import hospitalRoutes from "./routes/hospital.routes.js";
+
+
 
 
 
@@ -43,6 +46,8 @@ app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/auth", authRoutes);
 
 app.use("/api/symptoms", symptomRoutes);
+
+app.use("/api/hospitals", hospitalRoutes);
 
  
 export { app }

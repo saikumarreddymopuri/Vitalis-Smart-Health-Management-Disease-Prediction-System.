@@ -13,11 +13,13 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role }) => {
     ],
     Operator: [
       { label: "Profile", tab: "profile" },
+      { label: "🏥 Add Hospital", tab: "addHospital" },
       { label: "Manage Beds", tab: "manageBeds" },
       { label: "Manage Transport", tab: "manageTransport" },
     ],
     Admin: [
       { label: "Profile", tab: "profile" },
+      { label: "Pending Requests", tab: "pending" },
       { label: "Manage Users", tab: "users" },
       { label: "System Analytics", tab: "analytics" },
     ],
