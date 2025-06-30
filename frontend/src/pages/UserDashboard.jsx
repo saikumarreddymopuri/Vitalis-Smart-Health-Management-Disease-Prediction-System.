@@ -13,9 +13,13 @@ const UserDashboard = () => {
   const [prediction, setPrediction] = useState("");
   const [loading, setLoading] = useState(false);
 
-  //history of predictions 
 
+  //history of predictions 
   const [history, setHistory] = useState([]);
+
+  const [userLocation, setUserLocation] = useState(null);
+  const [nearbyHospitals, setNearbyHospitals] = useState([]);
+
 useEffect(() => {
   const fetchHistory = async () => {
     const token = localStorage.getItem("token");
@@ -182,6 +186,47 @@ useEffect(() => {
       console.log("🔍 Prediction result:", data);
       setPrediction(data.predicted_disease);
 
+
+      // Get user location
+
+      navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setUserLocation({ latitude, longitude });
+
+        try {
+          // Log token for debugging
+          const token = localStorage.getItem("token");
+          console.log("🧪 Token used:", token);
+          if (!token) {
+            console.error("❌ No token found in localStorage!");
+            return;
+          }
+
+          const res = await fetch(
+    `http://localhost:4000/api/hospitals/nearby-by-disease?disease=${data.predicted_disease}&userLat=${latitude}&userLng=${longitude}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+          const hospData = await res.json();
+          setNearbyHospitals(hospData.data || []);
+          console.log("📍 Nearby Hospitals:", hospData.data);
+        } catch (err) {
+          console.error("❌ Error fetching hospitals:", err);
+        }
+      },
+      (err) => {
+        console.error("Geolocation error:", err);
+        alert("Please allow location access to find nearby hospitals.");
+      }
+    );
+
+
       // Save to backend
       const token = localStorage.getItem("token");
       if (!token) {
@@ -228,6 +273,34 @@ useEffect(() => {
         <p className="text-xl font-bold mt-2 text-green-700">{prediction}</p>
       </div>
     )}
+
+
+{/*Show nearby hospitals if prediction is made*/}
+
+    {nearbyHospitals.length > 0 && (
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-blue-700 mb-2">🏥 Nearby Hospitals:</h3>
+        <ul className="space-y-3">
+          {nearbyHospitals.map((hosp) => (
+            <li
+              key={hosp._id}
+              className="p-4 border rounded shadow-sm bg-gray-50"
+            >
+              <p className="font-bold text-gray-800">{hosp.name}</p>
+              <p className="text-sm text-gray-600">
+                {hosp.specialization_offered} • {hosp.distance} km away
+              </p>
+              <div className="flex gap-3 mt-2">
+                <button className="px-3 py-1 bg-blue-500 text-white rounded">View Route</button>
+                <button className="px-3 py-1 bg-green-600 text-white rounded">Book Bed</button>
+                <button className="px-3 py-1 bg-purple-600 text-white rounded">Book Ambulance</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
 
     
 
