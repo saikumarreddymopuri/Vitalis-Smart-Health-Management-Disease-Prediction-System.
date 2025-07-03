@@ -20,6 +20,19 @@ const UserDashboard = () => {
   const [userLocation, setUserLocation] = useState(null);
   const [nearbyHospitals, setNearbyHospitals] = useState([]);
 
+  // 🆕 At top of UserDashboard.jsx (with other useState imports)
+  //const [activeTab, setActiveTab] = useState("predict"); // or your default
+  //const [activeTab, setActiveTab] = useState("bookBed");
+  const [showBookingForm, setShowBookingForm] = useState(false); // 🆕 Controls form visibility
+  const [selectedBookingInfo, setSelectedBookingInfo] = useState(null); // 🆕 Info from dashboard card
+  const [bedType, setBedType] = useState("");
+  const [bedsCount, setBedsCount] = useState(1);
+  const [userBookings, setUserBookings] = useState([]);
+
+
+
+
+
 useEffect(() => {
   const fetchHistory = async () => {
     const token = localStorage.getItem("token");
@@ -48,6 +61,37 @@ useEffect(() => {
     fetchHistory(); // ✅ only fetch when "history" tab is active
   }
 }, [activeTab]);
+
+  const fetchUserBookings = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("http://localhost:4000/api/bookings/user", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setUserBookings(data.data || []);
+      }
+    } catch (err) {
+      console.error("❌ Failed to load bookings", err);
+    }
+  };
+
+  useEffect(() => {
+  if (activeTab === "bookBed") {
+    if (!selectedBookingInfo) {
+      // User came directly through sidebar — show only past bookings
+      setShowBookingForm(false);
+      fetchUserBookings(); // Function that fetches from GET /api/bookings/user
+    }
+  }
+}, [activeTab]);
+
+
+
 
 
 
@@ -292,7 +336,22 @@ useEffect(() => {
               </p>
               <div className="flex gap-3 mt-2">
                 <button className="px-3 py-1 bg-blue-500 text-white rounded">View Route</button>
-                <button className="px-3 py-1 bg-green-600 text-white rounded">Book Bed</button>
+                <button
+                    onClick={() => {
+                      setSelectedBookingInfo({
+                        hospitalId: hosp._id,
+                        hospitalName: hosp.name,
+                        disease: prediction,
+                      });
+                      setShowBookingForm(true);
+                      setActiveTab("bookBed"); // 🔁 redirect to booking form tab
+                    }}
+                    className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 transition text-sm"
+                  >
+                    🛏️ Book Bed
+                  </button>
+
+
                 <button className="px-3 py-1 bg-purple-600 text-white rounded">Book Ambulance</button>
               </div>
             </li>
@@ -308,12 +367,119 @@ useEffect(() => {
 )}
 
 
-        {activeTab === "bed" && (
-          <div className="bg-white p-6 rounded shadow text-center">
-            <h2 className="text-xl font-bold mb-4">Bed Booking</h2>
-            <p>🛏️ Bed booking UI coming soon...</p>
-          </div>
-        )}
+        {activeTab === "bookBed" && (
+            <div className="p-6 bg-white rounded shadow">
+              {showBookingForm ? (
+                <>
+                  <h2 className="text-xl font-bold mb-4">📝 Book a Bed at {selectedBookingInfo?.hospitalName}</h2>
+
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const token = localStorage.getItem("token");
+
+                      const res = await fetch("http://localhost:4000/api/bookings", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                          hospitalId: selectedBookingInfo.hospitalId,
+                          bed_type: bedType,
+                          disease: selectedBookingInfo.disease,
+                          bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
+                        }),
+                      });
+
+                      const data = await res.json();
+                      if (res.ok) {
+                        alert("✅ Booking request submitted");
+                        await fetchUserBookings();
+                        setShowBookingForm(false); // Hide form
+                        setSelectedBookingInfo(null); // Clear info
+                      } else {
+                        alert(data.message || "Booking failed");
+                      }
+                    }}
+                    className="space-y-4"
+                  >
+                    {/* Bed Type */}
+                    <select
+                      className="w-full border p-2 rounded"
+                      value={bedType}
+                      onChange={(e) => setBedType(e.target.value)}
+                      required
+                    >
+                      <option value="">Select Bed Type</option>
+                      <option value="general">General</option>
+                      <option value="icu">ICU</option>
+                      <option value="ventilator">Ventilator</option>
+                      <option value="deluxe">Deluxe</option>
+                    </select>
+
+                    {/* Number of Beds */}
+                    <input
+                      type="number"
+                      className="w-full border p-2 rounded"
+                      value={bedsCount}
+                      onChange={(e) => setBedsCount(e.target.value)}
+                      placeholder="Number of Beds"
+                      min={1}
+                      required
+                    />
+
+                    <div className="flex gap-4">
+                      <button
+                        type="submit"
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+                      >
+                        ✅ Confirm Booking
+                      </button>
+
+                      <button
+                        type="button"
+                        className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 transition"
+                        onClick={() => {
+                          setShowBookingForm(false);
+                          setSelectedBookingInfo(null);
+                        }}
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-xl font-bold mb-4">📄 Your Past Bed Bookings</h2>
+                  {userBookings.length === 0 ? (
+                    <p>No past bookings yet.</p>
+                  ) : (
+                    <ul className="space-y-3">
+                      {userBookings.map((booking) => (
+                        <li
+                          key={booking._id}
+                          className="border p-3 rounded bg-gray-50 shadow-sm"
+                        >
+                          <p><strong>🏥 Hospital:</strong> {booking.hospital.name}</p>
+                          <p><strong>🛏️ Bed:</strong> {booking.bed_type}</p>
+                          <p><strong>🦠 Disease:</strong> {booking.disease}</p>
+                          <p><strong>Status:</strong> 
+                            <span className={`ml-1 font-semibold ${booking.status === "confirmed" ? "text-green-600" : booking.status === "pending" ? "text-yellow-600" : "text-red-600"}`}>
+                              {booking.status}
+                            </span>
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+
 
         {activeTab === "transport" && (
           <div className="bg-white p-6 rounded shadow text-center">

@@ -7,7 +7,7 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role }) => {
     User: [
       { label: "Profile", tab: "profile" },
       { label: "Know Disease", tab: "know" },
-      { label: "Bed Booking", tab: "bed" },
+      { label: "Bed Booking", tab: "bookBed" },
       { label: "Transport Booking", tab: "transport" },
       { label: "History", tab: "history" },
     ],
@@ -15,6 +15,7 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role }) => {
       { label: "Profile", tab: "profile" },
       { label: "🏥 Add Hospital", tab: "addHospital" },
       { label: "Manage Beds", tab: "addBeds" },
+      { label: "Manage Bookings", tab: "manageBookings" },
       { label: "Manage Transport", tab: "manageTransport" },
     ],
     Admin: [

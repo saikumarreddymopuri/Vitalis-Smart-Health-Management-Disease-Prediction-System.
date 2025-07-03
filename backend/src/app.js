@@ -9,6 +9,7 @@ import "./controllers/auth.controller.js";
 import symptomRoutes from "./routes/symptom.routes.js";
 import hospitalRoutes from "./routes/hospital.routes.js";
 import bedRoutes from "./routes/bed.routes.js";
+import bookingRoutes from "./routes/bedbooking.routes.js";
 
 
 
@@ -53,6 +54,8 @@ app.use("/api/symptoms", symptomRoutes);
 app.use("/api/hospitals", hospitalRoutes);
 
 app.use("/api/beds", bedRoutes);
+
+app.use("/api/bookings", bookingRoutes);
 
  
 export { app }

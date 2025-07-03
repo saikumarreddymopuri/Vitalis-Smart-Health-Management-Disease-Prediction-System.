@@ -49,6 +49,65 @@ const OperatorDashboard = () => {
 }, []);
 
 
+// managing bed bookings
+
+const [pendingBookings, setPendingBookings] = useState([]);
+
+useEffect(() => {
+  if (activeTab === "manageBookings") {
+    fetchPendingBookings();
+  }
+}, [activeTab]);
+
+const fetchPendingBookings = async () => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch("http://localhost:4000/api/bookings/operator", {
+      headers: {
+         
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      setPendingBookings(data.data || []);
+    } else {
+      console.error("❌ Error fetching operator bookings:", data.message);
+    }
+  } catch (err) {
+    console.error("❌ Error:", err);
+  }
+};
+
+//handle logic for approving or rejecting bookings
+
+const handleUpdateStatus = async (id, newStatus) => {
+  try {
+    const token = localStorage.getItem("token");
+    const res = await fetch(`http://localhost:4000/api/bookings/${id}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      alert(`Booking ${newStatus}`);
+      fetchPendingBookings(); // Refresh list
+    } else {
+      alert(data.message || "Failed to update booking");
+    }
+  } catch (err) {
+    console.error("❌ Error updating booking:", err);
+  }
+};
+
+
+
 
   // ✅ Logs outside JSX — safe
   console.log("Operator Role:", user.role);
@@ -285,6 +344,59 @@ const OperatorDashboard = () => {
             </form>
           </div>
         )}
+
+        {/* Manage Bookings */}
+
+        {activeTab === "manageBookings" && (
+          <div className="bg-white p-6 rounded shadow">
+            <h2 className="text-xl font-bold mb-4 text-center">📋 Pending Bed Bookings</h2>
+
+            {pendingBookings.length === 0 ? (
+              <p className="text-gray-600 text-center">No pending bookings</p>
+            ) : (
+              <table className="w-full table-auto border">
+                <thead>
+                  <tr className="bg-gray-200">
+                    <th className="p-2 border">User</th>
+                    <th className="p-2 border">Email</th>
+                    <th className="p-2 border">Hospital</th>
+                    <th className="p-2 border">Disease</th>
+                    <th className="p-2 border">Bed Type</th>
+                    <th className="p-2 border">Status</th>
+                    <th className="p-2 border">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingBookings.map((booking) => (
+                    <tr key={booking._id} className="text-center">
+                      <td className="p-2 border">{booking.user.fullName}</td>
+                      <td className="p-2 border">{booking.user.email}</td>
+                      <td className="p-2 border">{booking.hospital.name}</td>
+                      <td className="p-2 border">{booking.disease}</td>
+                      <td className="p-2 border capitalize">{booking.bed_type}</td>
+                      <td className="p-2 border capitalize">{booking.status}</td>
+                      <td className="p-2 border space-x-2">
+                        <button
+                          onClick={() => handleUpdateStatus(booking._id, "confirmed")}
+                          className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                        >
+                          ✅ Confirm
+                        </button>
+                        <button
+                          onClick={() => handleUpdateStatus(booking._id, "rejected")}
+                          className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                        >
+                          ❌ Reject
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
 
 
         {/* Manage Transport */}
