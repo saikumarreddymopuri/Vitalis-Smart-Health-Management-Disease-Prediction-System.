@@ -25,6 +25,15 @@ const OperatorDashboard = () => {
   const [quantity, setQuantity] = useState(""); // New state for quantity
   const [approvedHospitals, setApprovedHospitals] = useState([]);
 
+  // 🟪 Ambulance States
+const [verifiedHospitals, setVerifiedHospitals] = useState([]);
+const [formData, setFormData] = useState({
+  hospital_id: "",
+  ambulance_type: "basic",
+  vehicle_number: "",
+  price_per_km: "",
+});
+
 
 
 // Fetch approved hospitals 
@@ -105,6 +114,62 @@ const handleUpdateStatus = async (id, newStatus) => {
     console.error("❌ Error updating booking:", err);
   }
 };
+
+//ambulance addition logic
+const token = localStorage.getItem("token");
+
+// 🔁 Fetch hospitals created by this operator
+const fetchHospitalsForAmbulance = async () => {
+  try {
+    const res = await fetch("http://localhost:4000/api/hospitals/operator", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    setVerifiedHospitals(data.data || []);
+  } catch (err) {
+    console.error("❌ Error fetching hospitals", err);
+  }
+};
+
+// 🔁 Add ambulance
+const handleAddAmbulance = async (e) => {
+  e.preventDefault();
+  try {
+    const res = await fetch("http://localhost:4000/api/ambulances", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      alert("✅ Ambulance added successfully");
+      setFormData({
+        hospital_id: "",
+        ambulance_type: "basic",
+        vehicle_number: "",
+        price_per_km: "",
+      });
+    } else {
+      alert(data.message || "❌ Failed to add ambulance");
+    }
+  } catch (error) {
+    console.error("❌ Add ambulance error:", error);
+    alert("Error occurred while adding ambulance.");
+  }
+};
+
+// 🔃 useEffect to load hospitals when ambulance tab is active
+useEffect(() => {
+  if (activeTab === "addAmbulance") {
+    fetchHospitalsForAmbulance();
+  }
+}, [activeTab]);
+
+ 
 
 
 
@@ -399,13 +464,81 @@ const handleUpdateStatus = async (id, newStatus) => {
 
 
 
-        {/* Manage Transport */}
-        {activeTab === "manageTransport" && (
-          <div className="bg-white p-6 rounded shadow text-center">
-            <h2 className="text-xl font-bold mb-4">Manage Transport</h2>
-            <p>🚑 Ambulance and transport request handling coming soon...</p>
+        {/* add ambulance */} 
+        {activeTab === "addAmbulance" && (
+          <div>
+            <h2 className="text-xl font-bold text-purple-700 mb-4">🚑 Add New Ambulance</h2>
+            <form
+              onSubmit={handleAddAmbulance}
+              className="bg-white p-4 rounded shadow max-w-md space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-semibold">Select Hospital</label>
+                <select
+                  name="hospital_id"
+                  value={formData.hospital_id}
+                  onChange={(e) => setFormData({ ...formData, hospital_id: e.target.value })}
+                  className="w-full p-2 border rounded"
+                  required
+                >
+                  <option value="">-- Select --</option>
+                  {verifiedHospitals.map((hosp) => (
+                    <option key={hosp._id} value={hosp._id}>
+                      {hosp.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold">Ambulance Type</label>
+                <select
+                  name="ambulance_type"
+                  value={formData.ambulance_type}
+                  onChange={(e) => setFormData({ ...formData, ambulance_type: e.target.value })}
+                  className="w-full p-2 border rounded"
+                  required
+                >
+                  <option value="basic">Basic</option>
+                  <option value="icu">ICU</option>
+                  <option value="ac">AC</option>
+                  <option value="non-ac">Non-AC</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold">Vehicle Number</label>
+                <input
+                  type="text"
+                  value={formData.vehicle_number}
+                  onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
+                  className="w-full p-2 border rounded"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold">Price Per KM (₹)</label>
+                <input
+                  type="number"
+                  value={formData.price_per_km}
+                  onChange={(e) => setFormData({ ...formData, price_per_km: e.target.value })}
+                  className="w-full p-2 border rounded"
+                  required
+                  min={1}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
+              >
+                ➕ Add Ambulance
+              </button>
+            </form>
           </div>
         )}
+
       </main>
 
       <Footer />

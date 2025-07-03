@@ -139,3 +139,12 @@ export const getHospitalsByDisease = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, sorted, "Nearby hospitals found"));
 });
+
+export const getHospitalsByOperator = asyncHandler(async (req, res) => {
+  const hospitals = await Hospital.find({
+    createdBy: req.user._id,
+    is_verified: true,
+  });
+
+  res.status(200).json(new ApiResponse(200, hospitals));
+});

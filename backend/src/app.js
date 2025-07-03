@@ -10,6 +10,8 @@ import symptomRoutes from "./routes/symptom.routes.js";
 import hospitalRoutes from "./routes/hospital.routes.js";
 import bedRoutes from "./routes/bed.routes.js";
 import bookingRoutes from "./routes/bedbooking.routes.js";
+import ambulanceRoutes from "./routes/ambulance.routes.js";
+import ambulanceBookingRoutes from "./routes/ambulanceBooking.routes.js";
 
 
 
@@ -52,10 +54,11 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/symptoms", symptomRoutes);
 
 app.use("/api/hospitals", hospitalRoutes);
-
+//bed routes
 app.use("/api/beds", bedRoutes);
-
 app.use("/api/bookings", bookingRoutes);
 
- 
+ //ambulance routes
+app.use("/api/ambulances", ambulanceRoutes);
+app.use("/api/ambulance-bookings", ambulanceBookingRoutes);
 export { app }

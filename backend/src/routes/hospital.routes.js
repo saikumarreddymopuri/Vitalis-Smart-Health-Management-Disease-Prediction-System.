@@ -1,6 +1,6 @@
 // routes/hospital.routes.js
 import express from "express";
-import { createHospital , getPendingHospitals, verifyHospital, rejectHospital, getApprovedHospitalsForOperator, getHospitalsByDisease} from "../controllers/hospital.controller.js";
+import { createHospital , getPendingHospitals, verifyHospital, rejectHospital, getApprovedHospitalsForOperator, getHospitalsByDisease, getHospitalsByOperator} from "../controllers/hospital.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -18,6 +18,9 @@ router.delete("/:id", verifyJWT, rejectHospital);
 router.get("/operator-approved", verifyJWT, getApprovedHospitalsForOperator);
 
 router.get("/nearby-by-disease", verifyJWT, getHospitalsByDisease);
+
+router.get("/operator", verifyJWT, getHospitalsByOperator);
+
 
 
 

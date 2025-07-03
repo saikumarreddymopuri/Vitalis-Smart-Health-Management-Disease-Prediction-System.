@@ -3,6 +3,8 @@ import Header from "../components/Layout/Header.jsx";
 import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
 import { useEffect } from "react";
+import ViewRouteMap from "../components/Maps/ViewRouteMap.jsx";
+
 
 const UserDashboard = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -28,6 +30,24 @@ const UserDashboard = () => {
   const [bedType, setBedType] = useState("");
   const [bedsCount, setBedsCount] = useState(1);
   const [userBookings, setUserBookings] = useState([]);
+
+  //states for maps
+  const [selectedHospital, setSelectedHospital] = useState(null);
+  const [userCoords, setUserCoords] = useState(null);
+  const [selectedHospitalForMap, setSelectedHospitalForMap] = useState(null);
+ //states for ambulance booking
+  const [selectedAmbulanceInfo, setSelectedAmbulanceInfo] = useState(null);
+  const [ambulanceFormData, setAmbulanceFormData] = useState({
+    ambulanceId: "",
+    pickup_location: "",
+    drop_location: "",
+  });
+  const [availableAmbulances, setAvailableAmbulances] = useState([]);
+  const [userAmbulanceBookings, setUserAmbulanceBookings] = useState([]);
+
+
+  
+
 
 
 
@@ -89,6 +109,45 @@ useEffect(() => {
     }
   }
 }, [activeTab]);
+
+//ambulance booking logic
+useEffect(() => {
+  const fetchAmbulances = async () => {
+    if (activeTab === "bookAmbulance" && selectedAmbulanceInfo) {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(
+  `http://localhost:4000/api/ambulances/${selectedAmbulanceInfo.hospitalId}`,
+  { headers: { Authorization: `Bearer ${token}` } }
+);
+
+        const data = await res.json();
+        setAvailableAmbulances(data.data || []);
+      } catch (err) {
+        console.error("❌ Error fetching ambulances", err);
+      }
+    }
+  };
+
+  const fetchUserBookings = async () => {
+    if (activeTab === "bookAmbulance") {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:4000/api/ambulance-bookings/user", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setUserAmbulanceBookings(data.data || []);
+      } catch (err) {
+        console.error("❌ Error fetching user ambulance bookings", err);
+      }
+    }
+  };
+
+  fetchAmbulances();
+  fetchUserBookings();
+}, [activeTab, selectedAmbulanceInfo]);
+
 
 
 
@@ -322,46 +381,111 @@ useEffect(() => {
 {/*Show nearby hospitals if prediction is made*/}
 
     {nearbyHospitals.length > 0 && (
-      <div className="mt-6">
-        <h3 className="text-lg font-semibold text-blue-700 mb-2">🏥 Nearby Hospitals:</h3>
-        <ul className="space-y-3">
-          {nearbyHospitals.map((hosp) => (
-            <li
-              key={hosp._id}
-              className="p-4 border rounded shadow-sm bg-gray-50"
+  <div className="mt-6">
+    <h3 className="text-lg font-semibold text-blue-700 mb-2">🏥 Nearby Hospitals:</h3>
+    <ul className="space-y-3">
+      {nearbyHospitals.map((hosp) => (
+        <li
+          key={hosp._id}
+          className="p-4 border rounded shadow-sm bg-gray-50"
+        >
+          <p className="font-bold text-gray-800">{hosp.name}</p>
+          <p className="text-sm text-gray-600">
+            {hosp.specialization_offered} • {hosp.distance} km away
+          </p>
+
+          <div className="flex gap-3 mt-2">
+            <button
+              onClick={() => {
+                navigator.geolocation.getCurrentPosition((position) => {
+                  setUserCoords({
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                  });
+
+                  setSelectedHospitalForMap({
+                    hospitalCoords: {
+                      lat: hosp.latitude,
+                      lng: hosp.longitude,
+                    },
+                    hospitalName: hosp.name,
+                  });
+                });
+              }}
+              className="bg-yellow-600 text-white px-4 py-1 rounded hover:bg-yellow-700 transition text-sm"
             >
-              <p className="font-bold text-gray-800">{hosp.name}</p>
-              <p className="text-sm text-gray-600">
-                {hosp.specialization_offered} • {hosp.distance} km away
-              </p>
-              <div className="flex gap-3 mt-2">
-                <button className="px-3 py-1 bg-blue-500 text-white rounded">View Route</button>
-                <button
-                    onClick={() => {
-                      setSelectedBookingInfo({
-                        hospitalId: hosp._id,
-                        hospitalName: hosp.name,
-                        disease: prediction,
-                      });
-                      setShowBookingForm(true);
-                      setActiveTab("bookBed"); // 🔁 redirect to booking form tab
-                    }}
-                    className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 transition text-sm"
-                  >
-                    🛏️ Book Bed
-                  </button>
+              🗺️ View Route
+            </button>
 
 
-                <button className="px-3 py-1 bg-purple-600 text-white rounded">Book Ambulance</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    )}
+            {/* ✅ Show map only for the selected hospital */}
+            {userCoords && selectedHospital?.id === hosp._id && (
+              <ViewRouteMap
+                userCoords={userCoords}
+                hospitalCoords={{
+                  lat: hosp.latitude,
+                  lng: hosp.longitude,
+                }}
+              />
+            )}
 
+            <button
+              onClick={() => {
+                setSelectedBookingInfo({
+                  hospitalId: hosp._id,
+                  hospitalName: hosp.name,
+                  disease: prediction,
+                });
+                setShowBookingForm(true);
+                setActiveTab("bookBed"); // 🔁 redirect to booking form tab
+              }}
+              className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 transition text-sm"
+            >
+              🛏️ Book Bed
+            </button>
 
-    
+            <button
+              onClick={() => {
+                setSelectedAmbulanceInfo({
+                  hospitalId: hosp._id,
+                  hospitalName: hosp.name,
+                  disease: prediction,
+                });
+                setActiveTab("bookAmbulance"); // 🔁 redirect to booking form tab
+              }}
+              className="px-3 py-1 bg-purple-600 text-white rounded"
+            >
+              🚑 Book Ambulance
+            </button>
+
+          </div>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+{/* Close feature for map */}
+{selectedHospitalForMap && userCoords && (
+  <div className="mt-4 p-4 border rounded bg-white shadow-lg">
+    <div className="flex justify-between items-center mb-2">
+      <h4 className="text-md font-semibold text-gray-700">
+        📍 Route to: {selectedHospitalForMap.hospitalName}
+      </h4>
+      <button
+        onClick={() => setSelectedHospitalForMap(null)}
+        className="text-red-500 hover:text-red-700 text-sm"
+      >
+        ❌ Close Map
+      </button>
+    </div>
+
+    <ViewRouteMap
+      userCoords={userCoords}
+      hospitalCoords={selectedHospitalForMap.hospitalCoords}
+    />
+  </div>
+)}
 
   </div>
 )}
@@ -481,12 +605,160 @@ useEffect(() => {
 
 
 
-        {activeTab === "transport" && (
-          <div className="bg-white p-6 rounded shadow text-center">
-            <h2 className="text-xl font-bold mb-4">Transport Booking</h2>
-            <p>🚑 Transport booking coming soon...</p>
+        {activeTab === "bookAmbulance" && (
+          <div className="p-4">
+            {selectedAmbulanceInfo && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const token = localStorage.getItem("token");
+
+                  const res = await fetch("http://localhost:4000/api/ambulance-bookings", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      hospitalId: selectedAmbulanceInfo.hospitalId,
+                      ambulanceId: ambulanceFormData.ambulanceId,
+                      disease: selectedAmbulanceInfo.disease,
+                      pickup_location: ambulanceFormData.pickup_location,
+                      drop_location: ambulanceFormData.drop_location,
+                    }),
+                  });
+
+                  const data = await res.json();
+                  if (res.ok) {
+                    alert("✅ Ambulance booking request sent!");
+                    setAmbulanceFormData({
+                      ambulanceId: "",
+                      pickup_location: "",
+                      drop_location: "",
+                    });
+                    setSelectedAmbulanceInfo(null);
+                    setActiveTab("bookAmbulance");
+                  } else {
+                    alert(data.message || "❌ Booking failed.");
+                  }
+                }}
+                className="space-y-4 bg-white p-4 rounded shadow max-w-md"
+              >
+                <h3 className="text-lg font-bold text-purple-600">🚑 Book Ambulance</h3>
+
+                <div>
+                  <label className="block text-sm font-medium">Hospital</label>
+                  <input
+                    value={selectedAmbulanceInfo.hospitalName}
+                    disabled
+                    className="w-full p-2 border rounded bg-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">Disease</label>
+                  <input
+                    value={selectedAmbulanceInfo.disease}
+                    disabled
+                    className="w-full p-2 border rounded bg-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">Ambulance Type</label>
+                  <select
+                    value={ambulanceFormData.ambulanceId}
+                    onChange={(e) =>
+                      setAmbulanceFormData({ ...ambulanceFormData, ambulanceId: e.target.value })
+                    }
+                    className="w-full p-2 border rounded"
+                    required
+                  >
+                    <option value="">-- Select Ambulance --</option>
+                    {availableAmbulances.map((amb) => (
+                      <option key={amb._id} value={amb._id}>
+                        {amb.ambulance_type} - {amb.vehicle_number}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">Pickup Location</label>
+                  <input
+                    value={ambulanceFormData.pickup_location}
+                    onChange={(e) =>
+                      setAmbulanceFormData({ ...ambulanceFormData, pickup_location: e.target.value })
+                    }
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium">Drop Location</label>
+                  <input
+                    value={ambulanceFormData.drop_location}
+                    onChange={(e) =>
+                      setAmbulanceFormData({ ...ambulanceFormData, drop_location: e.target.value })
+                    }
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition"
+                >
+                  📤 Confirm Booking
+                </button>
+              </form>
+            )}
+
+            {!selectedAmbulanceInfo && (
+              <div className="mt-6">
+                <h4 className="text-md font-semibold mb-2 text-purple-600">📋 Your Ambulance Bookings</h4>
+                {userAmbulanceBookings.length === 0 ? (
+                  <p className="text-sm text-gray-600">No bookings yet.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {userAmbulanceBookings.map((booking) => (
+                      <li
+                        key={booking._id}
+                        className="p-3 border rounded bg-gray-100 text-sm flex justify-between items-center"
+                      >
+                        <div>
+                          <p>
+                            <strong>Hospital:</strong> {booking.hospital.name}
+                          </p>
+                          <p>
+                            <strong>Ambulance Vehicle No: </strong> {booking.ambulance.vehicle_number} ({booking.ambulance.ambulance_type})
+                          </p>
+                          <p>
+                            <strong>Status:</strong>{" "}
+                            <span
+                              className={`font-semibold ${
+                                booking.status === "confirmed"
+                                  ? "text-green-600"
+                                  : booking.status === "cancelled"
+                                  ? "text-red-600"
+                                  : "text-yellow-600"
+                              }`}
+                            >
+                              {booking.status}
+                            </span>
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
         )}
+
 
               {activeTab === "history" && (
         <div className="bg-white p-6 rounded shadow">
