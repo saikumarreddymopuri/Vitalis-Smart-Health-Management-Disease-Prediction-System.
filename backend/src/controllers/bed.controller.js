@@ -26,3 +26,17 @@ export const addBed = asyncHandler(async (req, res) => {
     .status(201)
     .json(new ApiResponse(201, newBed, "✅ Bed added successfully"));
 });
+
+export const getHospitalBeds = asyncHandler(async (req, res) => {
+  const { hospital_id } = req.params;
+
+  const beds = await Bed.find({
+  hospital: hospital_id,
+  is_available: true,
+});
+
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, beds, "✅ Beds fetched"));
+});

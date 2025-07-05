@@ -35,7 +35,7 @@ export const bookAmbulance = asyncHandler(async (req, res) => {
 
 // 🟢 Operator gets pending bookings
 export const getOperatorAmbulanceBookings = asyncHandler(async (req, res) => {
-  const hospitals = await Hospital.find({ operator: req.user._id }).select("_id");
+  const hospitals = await Hospital.find({ createdBy: req.user._id }).select("_id");
 
   const bookings = await AmbulanceBooking.find({
     hospital: { $in: hospitals.map((h) => h._id) },

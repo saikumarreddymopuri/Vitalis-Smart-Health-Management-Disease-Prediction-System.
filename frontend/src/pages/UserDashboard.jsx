@@ -45,6 +45,12 @@ const UserDashboard = () => {
   const [availableAmbulances, setAvailableAmbulances] = useState([]);
   const [userAmbulanceBookings, setUserAmbulanceBookings] = useState([]);
 
+  //razorpay states for diseade and bed booking
+  const [selectedBed, setSelectedBed] = useState(null); // 🛏️ selected bed info
+  //const [predictedDisease, setPredictedDisease] = useState(""); // 🦠 predicted disease
+  const [availableBeds, setAvailableBeds] = useState([]);
+
+
 
   
 
@@ -147,6 +153,139 @@ useEffect(() => {
   fetchAmbulances();
   fetchUserBookings();
 }, [activeTab, selectedAmbulanceInfo]);
+
+//razorpay payment logic
+const handlePayment = async ({ amount, hospitalId, bed_id, disease, bed_type, bedsCount }) => {
+  console.log("📨 handlePayment called with:", { amount, hospitalId, bed_id, disease });
+
+  const token = localStorage.getItem("token");
+  if (!token) {
+    alert("❌ You must be logged in to proceed");
+    return;
+  }
+
+  // Create order from backend
+  const res = await fetch("http://localhost:4000/api/payments/create-order", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      amount,
+      receipt: "booking_" + Date.now(),
+    }),
+  });
+
+  const data = await res.json();
+  console.log("📥 Order response:", data);
+  const order = data.data;
+  console.log("📦 Order details:", order);
+
+  // 🌟 Fallback-safe booking logic
+  const completeBooking = async () => {
+    console.log("🔥 Booking data sending...", { hospitalId, bed_id, disease });
+
+    console.log("📤 Sending bed booking to backend");
+
+    const bookRes = await fetch("http://localhost:4000/api/bookings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        hospitalId,
+        disease,
+        bed_type,
+        bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
+      }),
+      
+    });
+
+    const bookData = await bookRes.json();
+    console.log("📩 Booking response:", bookData);
+
+    if (bookRes.ok) {
+      alert("🏥 Bed booking request sent!");
+      setShowBookingForm(false);
+      setSelectedBed(null);
+      setActiveTab("bookBed");
+    } else {
+      alert(bookData.message || "❌ Booking failed");
+    }
+  };
+
+  const options = {
+    key: "rzp_test_YFD4eWqY5PM6Ml", // your Razorpay test key
+    amount: order.amount,
+    currency: "INR",
+    name: "Hospman Payment",
+    description: "Booking payment",
+    order_id: order.id,
+    handler: async function (response) {
+      console.log("✅ Razorpay success - proceeding with booking");
+      alert("✅ Payment successful!");
+      await completeBooking(); // Still book
+    },
+    modal: {
+      ondismiss: async function () {
+        console.log("⛔ Razorpay closed or failed - proceeding anyway");
+        alert("⚠️ Payment cancelled or failed. Proceeding with booking anyway.");
+        await completeBooking(); // Still book
+      },
+    },
+    prefill: {
+      name: "Test User",
+      email: "test@example.com",
+    },
+    theme: {
+      color: "#9155FD",
+    },
+    method: {
+      upi: true,
+      card: true,
+    },
+  };
+
+  const rzp = new window.Razorpay(options);
+  rzp.open();
+};
+
+
+
+useEffect(() => {
+  const fetchBeds = async () => {
+    if (selectedBookingInfo?.hospitalId) {
+      const token = localStorage.getItem("token");
+
+      try {
+        const res = await fetch(
+          `http://localhost:4000/api/beds/${selectedBookingInfo?.hospitalId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await res.json();
+        if (res.ok) {
+          setAvailableBeds(data.data || []);
+        } else {
+          console.error("Failed to fetch beds:", data.message);
+        }
+      } catch (err) {
+        console.error("Error fetching beds:", err);
+      }
+    }
+  };
+
+  fetchBeds();
+}, [selectedBookingInfo]);
+
+
+
 
 
 
@@ -500,31 +639,56 @@ useEffect(() => {
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
-                      const token = localStorage.getItem("token");
+                      console.log("Trying to fetch beds for hospitalId:", selectedBookingInfo?.hospitalId);
 
-                      const res = await fetch("http://localhost:4000/api/bookings", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Authorization: `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({
+                      console.log("Selected booking info:", selectedBookingInfo);
+                      console.log("Available beds:", availableBeds);
+                      console.log("Selected bed type:", bedType);
+
+                      const bed = availableBeds.find(
+                          (bed) => bed.bed_type === bedType
+                        );
+
+                        if (!bed) {
+                          alert("❌ Invalid bed type");
+                          return;
+                        }
+
+                        setSelectedBed(bed); // optional but useful
+
+                        await handlePayment({
+                          amount: bed.price_per_day,
                           hospitalId: selectedBookingInfo.hospitalId,
-                          bed_type: bedType,
+                          bed_id: bed._id,
                           disease: selectedBookingInfo.disease,
-                          bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
-                        }),
-                      });
+                          bed_type: selectedBed.bed_type,
+                          bedsCount: parseInt(bedsCount) || 1,
+                        });
+                      // const token = localStorage.getItem("token");
 
-                      const data = await res.json();
-                      if (res.ok) {
-                        alert("✅ Booking request submitted");
-                        await fetchUserBookings();
-                        setShowBookingForm(false); // Hide form
-                        setSelectedBookingInfo(null); // Clear info
-                      } else {
-                        alert(data.message || "Booking failed");
-                      }
+                      // const res = await fetch("http://localhost:4000/api/bookings", {
+                      //   method: "POST",
+                      //   headers: {
+                      //     "Content-Type": "application/json",
+                      //     Authorization: `Bearer ${token}`,
+                      //   },
+                      //   body: JSON.stringify({
+                      //     hospitalId: selectedBookingInfo.hospitalId,
+                      //     bed_type: bedType,
+                      //     disease: selectedBookingInfo.disease,
+                      //     bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
+                      //   }),
+                      // });
+
+                      // const data = await res.json();
+                      // if (res.ok) {
+                      //   alert("✅ Booking request submitted");
+                      //   await fetchUserBookings();
+                      //   setShowBookingForm(false); // Hide form
+                      //   setSelectedBookingInfo(null); // Clear info
+                      // } else {
+                      //   alert(data.message || "Booking failed");
+                      // }
                     }}
                     className="space-y-4"
                   >

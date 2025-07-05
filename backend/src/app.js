@@ -12,6 +12,7 @@ import bedRoutes from "./routes/bed.routes.js";
 import bookingRoutes from "./routes/bedbooking.routes.js";
 import ambulanceRoutes from "./routes/ambulance.routes.js";
 import ambulanceBookingRoutes from "./routes/ambulanceBooking.routes.js";
+import paymentRoutes from "./routes/payment.routes.js";
 
 
 
@@ -61,4 +62,8 @@ app.use("/api/bookings", bookingRoutes);
  //ambulance routes
 app.use("/api/ambulances", ambulanceRoutes);
 app.use("/api/ambulance-bookings", ambulanceBookingRoutes);
+
+//razorpay routes
+app.use("/api/payments", paymentRoutes);
+
 export { app }

@@ -34,6 +34,10 @@ const [formData, setFormData] = useState({
   price_per_km: "",
 });
 
+// ambulance requests
+const [ambulanceRequests, setAmbulanceRequests] = useState([]);
+
+
 
 
 // Fetch approved hospitals 
@@ -169,7 +173,49 @@ useEffect(() => {
   }
 }, [activeTab]);
 
- 
+// ambulance requests logic
+useEffect(() => {
+  const fetchAmbulanceRequests = async () => {
+    if (activeTab === "manageAmbulances") {
+      try {
+        const res = await fetch("http://localhost:4000/api/ambulance-bookings/operator", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setAmbulanceRequests(data.data || []);
+      } catch (err) {
+        console.error("❌ Error fetching ambulance requests", err);
+      }
+    }
+  };
+
+  fetchAmbulanceRequests();
+}, [activeTab]);
+
+const handleUpdateAmbulanceStatus = async (bookingId, status) => {
+  try {
+    const res = await fetch(`http://localhost:4000/api/ambulance-bookings/${bookingId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      alert(`Booking ${status} successfully`);
+      // Refresh the list
+      setAmbulanceRequests((prev) => prev.filter((b) => b._id !== bookingId));
+    } else {
+      alert(data.message || "❌ Failed to update status");
+    }
+  } catch (error) {
+    console.error("❌ Error updating status:", error);
+  }
+};
+
 
 
 
@@ -536,6 +582,44 @@ useEffect(() => {
                 ➕ Add Ambulance
               </button>
             </form>
+          </div>
+        )}
+
+        {/* Manage Ambulances */}
+        {activeTab === "manageAmbulances" && (
+          <div className="p-4">
+            <h2 className="text-xl font-bold text-purple-700 mb-4">🚨 Pending Ambulance Requests</h2>
+
+            {ambulanceRequests.length === 0 ? (
+              <p className="text-sm text-gray-500">No pending requests.</p>
+            ) : (
+              <ul className="space-y-4">
+                {ambulanceRequests.map((req) => (
+                  <li key={req._id} className="p-4 border rounded bg-gray-50 shadow-sm">
+                    <p><strong>👤 User:</strong> {req.user.fullName} ({req.user.email})</p>
+                    <p><strong>🏥 Hospital:</strong> {req.hospital.name}</p>
+                    <p><strong>🚑 Ambulance:</strong> {req.ambulance.ambulance_type} - {req.ambulance.vehicle_number}</p>
+                    <p><strong>📍 Pickup:</strong> {req.pickup_location}</p>
+                    <p><strong>📍 Drop:</strong> {req.drop_location}</p>
+
+                    <div className="mt-2 flex gap-4">
+                      <button
+                        onClick={() => handleUpdateAmbulanceStatus(req._id, "confirmed")}
+                        className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition text-sm"
+                      >
+                        ✅ Approve
+                      </button>
+                      <button
+                        onClick={() => handleUpdateAmbulanceStatus(req._id, "rejected")}
+                        className="bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700 transition text-sm"
+                      >
+                        ❌ Reject
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 

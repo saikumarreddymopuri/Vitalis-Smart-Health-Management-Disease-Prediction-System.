@@ -27,6 +27,7 @@
     "multer": "^2.0.1",
     "nodemailer": "^7.0.3",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "razorpay": "^2.9.6"
   }
 }
