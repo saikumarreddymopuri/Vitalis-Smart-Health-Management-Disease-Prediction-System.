@@ -6,6 +6,7 @@ import  Hospital  from "../models/hospital.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { notifyUser } from "../utils/notify.js";  
 
 // 🟢 User books ambulance
 export const bookAmbulance = asyncHandler(async (req, res) => {
@@ -27,6 +28,16 @@ export const bookAmbulance = asyncHandler(async (req, res) => {
     pickup_location,
     drop_location,
   });
+  const operators = await Admin.find({ role: "operator" });
+for (const op of operators) {
+  await notifyUser(
+    op.user_id,
+    "Operator",
+    "🚑 New Ambulance Request",
+    `A user requested ambulance from ${pickup_location} to ${drop_location}`
+  );
+}
+
 
   return res
     .status(201)
@@ -75,6 +86,13 @@ export const updateAmbulanceBookingStatus = asyncHandler(async (req, res) => {
 
   booking.status = status;
   await booking.save();
+  await notifyUser(
+  booking.user,
+  "User",
+  "🚑 Ambulance Booking Status Updated",
+  `Your ambulance request has been ${booking.status}`
+);
+
 
   return res
     .status(200)

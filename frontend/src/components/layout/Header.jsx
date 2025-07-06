@@ -1,9 +1,14 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Notifications from "./Notifications";
+import { useTheme } from "../../hooks/useTheme";
+//import "../../index.css"; 
+ 
 
-const Header = ({ toggleSidebar, avatarUrl, name }) => {
+const Header = ({ toggleSidebar, avatarUrl, name, userId  }) => {
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = async () => {
     try {
@@ -28,6 +33,13 @@ const Header = ({ toggleSidebar, avatarUrl, name }) => {
         ☰
       </button>
 
+      <button
+          onClick={toggleTheme}
+          className="ml-2 px-3 py-1 bg-gray-200 dark:bg-gray-700 text-sm rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+        >
+          {theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode"}
+        </button>
+
       <div className="flex items-center space-x-4 ml-auto">
         <img
           src={avatarUrl}
@@ -37,6 +49,8 @@ const Header = ({ toggleSidebar, avatarUrl, name }) => {
         <span className="text-gray-700 font-semibold hidden sm:block">
           {name}
         </span>
+
+        <Notifications userId={userId} />
 
         <button
           className="ml-4 px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"

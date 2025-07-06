@@ -4,6 +4,8 @@ import  Hospital  from "../models/hospital.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { notifyUser } from "../utils/notify.js";
+import {User} from "../models/user.model.js";
 
 // 🟢 User books bed
 export const bookBed = asyncHandler(async (req, res) => {
@@ -31,6 +33,19 @@ export const bookBed = asyncHandler(async (req, res) => {
     disease,
     bedsCount,
   });
+  const operators = await User.find({ role: "Operator" }); // get all operators
+for (const op of operators) {
+  console.log("Notifying operator:", op._id);
+  console.log("name:", op.fullName);
+  await notifyUser(
+    op._id,
+
+    "Operator",
+    "🛏️ New Bed Booking Request",
+    `A user requested a ${bed_type} bed for ${disease}`
+  );
+}
+
 
   res.status(201).json(new ApiResponse(201, booking, "Bed booking request created"));
 });
@@ -75,6 +90,13 @@ export const updateBookingStatus = asyncHandler(async (req, res) => {
 
   booking.status = status;
   await booking.save();
+  await notifyUser(
+  booking.user,   // user who made the booking
+  "User",
+  "🛏️ Bed Booking Status Updated",
+  `Your booking has been ${booking.status}`
+);
+
 
   res.status(200).json(new ApiResponse(200, booking, `Booking ${status}`));
 });

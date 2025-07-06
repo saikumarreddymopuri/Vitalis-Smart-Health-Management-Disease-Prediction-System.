@@ -3,6 +3,8 @@ import Hospital from "../models/hospital.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { notifyUser } from "../utils/notify.js";
+import {User} from "../models/user.model.js";
 
 // @desc    Operator creates a hospital request
 // @route   POST /api/hospitals
@@ -33,6 +35,16 @@ export const createHospital = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
     is_verified: false,
   });
+  const admins = await User.find({ role: "Admin" });
+for (const admin of admins) {
+  await notifyUser(
+    admin._id,
+    "Admin",
+    "🏥 Hospital Add Request",
+    `An operator has requested to add a new hospital: ${newHospital.name}`
+  );
+}
+
 
   return res
     .status(201)
@@ -52,11 +64,20 @@ export const getPendingHospitals = asyncHandler(async (req, res) => {
 // ✅ Approve
 export const verifyHospital = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  console.log("Verifying hospital with ID:", id);
   const hospital = await Hospital.findById(id);
+  console.log("Found hospital:", hospital);
   if (!hospital) throw new ApiError(404, "Hospital not found");
 
   hospital.is_verified = true;
   await hospital.save();
+  await notifyUser(
+  hospital.createdBy, // this must be stored when hospital was created
+  "Operator",
+  "🏥 Hospital Request Reviewed",
+  `Admin has ${hospital.is_verified ? "approved" : "rejected"} your hospital: ${hospital.name}`
+);
+
 
   return res
     .status(200)
@@ -67,6 +88,13 @@ export const verifyHospital = asyncHandler(async (req, res) => {
 export const rejectHospital = asyncHandler(async (req, res) => {
   const { id } = req.params;
   await Hospital.findByIdAndDelete(id);
+  await notifyUser(
+  hospital.createdBy, // this must be stored when hospital was created
+  "Operator",
+  "🏥 Hospital Request Reviewed",
+  `Admin has ${hospital.is_verified ? "approved" : "rejected"} your hospital: ${hospital.name}`
+);
+
 
   return res
     .status(200)

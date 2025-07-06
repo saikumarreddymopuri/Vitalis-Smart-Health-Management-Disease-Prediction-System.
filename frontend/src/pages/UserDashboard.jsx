@@ -4,9 +4,12 @@ import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
 import { useEffect } from "react";
 import ViewRouteMap from "../components/Maps/ViewRouteMap.jsx";
+import { useTheme } from "../hooks/useTheme.js"; 
+//import "../index.css"; // Ensure this is imported to apply Tailwind styles
 
 
 const UserDashboard = () => {
+  const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const user = JSON.parse(localStorage.getItem("user"));
   const [activeTab, setActiveTab] = useState(""); // to track which section is active
@@ -297,6 +300,7 @@ useEffect(() => {
 
 
   return (
+    <div className={`${theme} min-h-screen`}>
     <div className="min-h-screen flex flex-col bg-gray-100">
       <Header
         toggleSidebar={() => setIsOpen(!isOpen)}
@@ -962,6 +966,7 @@ useEffect(() => {
       </main>
 
       <Footer />
+    </div>
     </div>
   );
 };
