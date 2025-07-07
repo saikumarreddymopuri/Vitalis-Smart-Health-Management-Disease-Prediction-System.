@@ -1,4 +1,4 @@
-import React, { useState ,useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import Header from "../components/Layout/Header.jsx";
 import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
@@ -26,212 +26,215 @@ const OperatorDashboard = () => {
   const [approvedHospitals, setApprovedHospitals] = useState([]);
 
   // 🟪 Ambulance States
-const [verifiedHospitals, setVerifiedHospitals] = useState([]);
-const [formData, setFormData] = useState({
-  hospital_id: "",
-  ambulance_type: "basic",
-  vehicle_number: "",
-  price_per_km: "",
-});
+  const [verifiedHospitals, setVerifiedHospitals] = useState([]);
+  const [formData, setFormData] = useState({
+    hospital_id: "",
+    ambulance_type: "basic",
+    vehicle_number: "",
+    price_per_km: "",
+  });
 
-// ambulance requests
-const [ambulanceRequests, setAmbulanceRequests] = useState([]);
+  // ambulance requests
+  const [ambulanceRequests, setAmbulanceRequests] = useState([]);
 
-
-
-
-// Fetch approved hospitals 
+  // Fetch approved hospitals
   useEffect(() => {
-  const fetchApprovedHospitals = async () => {
+    const fetchApprovedHospitals = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(
+          "http://localhost:4000/api/hospitals/operator-approved",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await res.json();
+        setApprovedHospitals(data.data || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch approved hospitals", err);
+      }
+    };
+
+    fetchApprovedHospitals();
+  }, []);
+
+  // managing bed bookings
+
+  const [pendingBookings, setPendingBookings] = useState([]);
+
+  useEffect(() => {
+    if (activeTab === "manageBookings") {
+      fetchPendingBookings();
+    }
+  }, [activeTab]);
+
+  const fetchPendingBookings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:4000/api/hospitals/operator-approved", {
+      const res = await fetch("http://localhost:4000/api/bookings/operator", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
       const data = await res.json();
-      setApprovedHospitals(data.data || []);
-    } catch (err) {
-      console.error("❌ Failed to fetch approved hospitals", err);
-    }
-  };
-
-  fetchApprovedHospitals();
-}, []);
-
-
-// managing bed bookings
-
-const [pendingBookings, setPendingBookings] = useState([]);
-
-useEffect(() => {
-  if (activeTab === "manageBookings") {
-    fetchPendingBookings();
-  }
-}, [activeTab]);
-
-const fetchPendingBookings = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch("http://localhost:4000/api/bookings/operator", {
-      headers: {
-         
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      setPendingBookings(data.data || []);
-    } else {
-      console.error("❌ Error fetching operator bookings:", data.message);
-    }
-  } catch (err) {
-    console.error("❌ Error:", err);
-  }
-};
-
-//handle logic for approving or rejecting bookings
-
-const handleUpdateStatus = async (id, newStatus) => {
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`http://localhost:4000/api/bookings/${id}/status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status: newStatus }),
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      alert(`Booking ${newStatus}`);
-      fetchPendingBookings(); // Refresh list
-    } else {
-      alert(data.message || "Failed to update booking");
-    }
-  } catch (err) {
-    console.error("❌ Error updating booking:", err);
-  }
-};
-
-//ambulance addition logic
-const token = localStorage.getItem("token");
-
-// 🔁 Fetch hospitals created by this operator
-const fetchHospitalsForAmbulance = async () => {
-  try {
-    const res = await fetch("http://localhost:4000/api/hospitals/operator", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await res.json();
-    setVerifiedHospitals(data.data || []);
-  } catch (err) {
-    console.error("❌ Error fetching hospitals", err);
-  }
-};
-
-// 🔁 Add ambulance
-const handleAddAmbulance = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await fetch("http://localhost:4000/api/ambulances", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(formData),
-    });
-
-    const data = await res.json();
-    if (res.ok) {
-      alert("✅ Ambulance added successfully");
-      setFormData({
-        hospital_id: "",
-        ambulance_type: "basic",
-        vehicle_number: "",
-        price_per_km: "",
-      });
-    } else {
-      alert(data.message || "❌ Failed to add ambulance");
-    }
-  } catch (error) {
-    console.error("❌ Add ambulance error:", error);
-    alert("Error occurred while adding ambulance.");
-  }
-};
-
-// 🔃 useEffect to load hospitals when ambulance tab is active
-useEffect(() => {
-  if (activeTab === "addAmbulance") {
-    fetchHospitalsForAmbulance();
-  }
-}, [activeTab]);
-
-// ambulance requests logic
-useEffect(() => {
-  const fetchAmbulanceRequests = async () => {
-    if (activeTab === "manageAmbulances") {
-      try {
-        const res = await fetch("http://localhost:4000/api/ambulance-bookings/operator", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        setAmbulanceRequests(data.data || []);
-      } catch (err) {
-        console.error("❌ Error fetching ambulance requests", err);
+      if (res.ok) {
+        setPendingBookings(data.data || []);
+      } else {
+        console.error("❌ Error fetching operator bookings:", data.message);
       }
+    } catch (err) {
+      console.error("❌ Error:", err);
     }
   };
 
-  fetchAmbulanceRequests();
-}, [activeTab]);
+  //handle logic for approving or rejecting bookings
 
-const handleUpdateAmbulanceStatus = async (bookingId, status) => {
-  try {
-    const res = await fetch(`http://localhost:4000/api/ambulance-bookings/${bookingId}/status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ status }),
-    });
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `http://localhost:4000/api/bookings/${id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
 
-    const data = await res.json();
-    if (res.ok) {
-      alert(`Booking ${status} successfully`);
-      // Refresh the list
-      setAmbulanceRequests((prev) => prev.filter((b) => b._id !== bookingId));
-    } else {
-      alert(data.message || "❌ Failed to update status");
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Booking ${newStatus}`);
+        fetchPendingBookings(); // Refresh list
+      } else {
+        alert(data.message || "Failed to update booking");
+      }
+    } catch (err) {
+      console.error("❌ Error updating booking:", err);
     }
-  } catch (error) {
-    console.error("❌ Error updating status:", error);
-  }
-};
+  };
 
+  //ambulance addition logic
+  const token = localStorage.getItem("token");
 
+  // 🔁 Fetch hospitals created by this operator
+  const fetchHospitalsForAmbulance = async () => {
+    try {
+      const res = await fetch("http://localhost:4000/api/hospitals/operator", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setVerifiedHospitals(data.data || []);
+    } catch (err) {
+      console.error("❌ Error fetching hospitals", err);
+    }
+  };
 
+  // 🔁 Add ambulance
+  const handleAddAmbulance = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("http://localhost:4000/api/ambulances", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
 
+      const data = await res.json();
+      if (res.ok) {
+        alert("✅ Ambulance added successfully");
+        setFormData({
+          hospital_id: "",
+          ambulance_type: "basic",
+          vehicle_number: "",
+          price_per_km: "",
+        });
+      } else {
+        alert(data.message || "❌ Failed to add ambulance");
+      }
+    } catch (error) {
+      console.error("❌ Add ambulance error:", error);
+      alert("Error occurred while adding ambulance.");
+    }
+  };
+
+  // 🔃 useEffect to load hospitals when ambulance tab is active
+  useEffect(() => {
+    if (activeTab === "addAmbulance") {
+      fetchHospitalsForAmbulance();
+    }
+  }, [activeTab]);
+
+  // ambulance requests logic
+  useEffect(() => {
+    const fetchAmbulanceRequests = async () => {
+      if (activeTab === "manageAmbulances") {
+        try {
+          const res = await fetch(
+            "http://localhost:4000/api/ambulance-bookings/operator",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const data = await res.json();
+          setAmbulanceRequests(data.data || []);
+        } catch (err) {
+          console.error("❌ Error fetching ambulance requests", err);
+        }
+      }
+    };
+
+    fetchAmbulanceRequests();
+  }, [activeTab]);
+
+  const handleUpdateAmbulanceStatus = async (bookingId, status) => {
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/ambulance-bookings/${bookingId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Booking ${status} successfully`);
+        // Refresh the list
+        setAmbulanceRequests((prev) => prev.filter((b) => b._id !== bookingId));
+      } else {
+        alert(data.message || "❌ Failed to update status");
+      }
+    } catch (error) {
+      console.error("❌ Error updating status:", error);
+    }
+  };
 
   // ✅ Logs outside JSX — safe
   console.log("Operator Role:", user.role);
   console.log("Current activeTab:", activeTab);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen bg-white pt-20 pb-16 text-black dark:bg-gray-900 dark:text-white transition-colors duration-300">
       <Header
         toggleSidebar={() => setIsOpen(!isOpen)}
         avatarUrl={user.avatar}
         name={user.fullName}
+        isOpen={isOpen}
       />
-
       <Sidebar
         isOpen={isOpen}
         toggleSidebar={() => setIsOpen(!isOpen)}
@@ -239,7 +242,7 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
         role={user.role}
       />
 
-      <main className="ml-0 md:ml-64 p-6 flex-grow">
+      <main className={`p-6 flex-grow transition-all duration-300 ${isOpen ? "ml-64" : "ml-0"}`}>
         {/* Default View */}
         {activeTab === "" && (
           <div className="flex flex-col items-center justify-center h-[70vh] text-center">
@@ -251,7 +254,7 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
             <h1 className="text-3xl font-bold text-blue-700 mb-2">
               Welcome Operator 👷‍♂️
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-700 dark:text-gray-300">
               You’re here to manage hospital operations!
             </p>
           </div>
@@ -259,18 +262,37 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
 
         {/* Profile Section */}
         {activeTab === "profile" && (
-          <div className="bg-white p-6 rounded shadow">
-            <h2 className="text-xl font-bold mb-4">Your Profile</h2>
-            <p><strong>Name:</strong> {user.fullName}</p>
-            <p><strong>Email:</strong> {user.email}</p>
-            <p><strong>Role:</strong> {user.role}</p>
-          </div>
-        )}
+  <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md transition-all duration-300 max-w-xl mx-auto">
+    <h2 className="text-2xl font-bold text-blue-700 dark:text-blue-400 mb-6 text-center">
+      Your Profile
+    </h2>
+
+    <div className="space-y-4 text-gray-800 dark:text-gray-200">
+      <div className="flex justify-between border-b pb-2">
+        <span className="font-semibold">👤 Name:</span>
+        <span>{user.fullName}</span>
+      </div>
+
+      <div className="flex justify-between border-b pb-2">
+        <span className="font-semibold">📧 Email:</span>
+        <span>{user.email}</span>
+      </div>
+
+      <div className="flex justify-between border-b pb-2">
+        <span className="font-semibold">🛡️ Role:</span>
+        <span className="capitalize">{user.role}</span>
+      </div>
+    </div>
+  </div>
+)}
+
         {/* Add Hospitals */}
 
         {activeTab === "addHospital" && (
-          <div className="bg-white p-6 rounded shadow max-w-xl mx-auto">
-            <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">Add Hospital</h2>
+          <div className="bg-gray-200 p-6 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-200 rounded shadow max-w-xl mx-auto">
+            <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">
+              Add Hospital
+            </h2>
 
             <form
               className="space-y-4"
@@ -284,29 +306,39 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
                 }
 
                 try {
-                  const res = await fetch("http://localhost:4000/api/hospitals", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                      name,
-                      address,
-                      city,
-                      contact_number:contact,
-                      specialization_offered: specialization.split(",").map(s => s.trim()),
-                      latitude: parseFloat(latitude),
-                      longitude: parseFloat(longitude),
-                    }),
-                  });
+                  const res = await fetch(
+                    "http://localhost:4000/api/hospitals",
+                    {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        name,
+                        address,
+                        city,
+                        contact_number: contact,
+                        specialization_offered: specialization
+                          .split(",")
+                          .map((s) => s.trim()),
+                        latitude: parseFloat(latitude),
+                        longitude: parseFloat(longitude),
+                      }),
+                    }
+                  );
 
                   const data = await res.json();
                   if (res.ok) {
                     alert("✅ Hospital submitted for approval!");
                     // Clear form
-                    setName(""); setAddress(""); setCity(""); setContact(""); setSpecialization("");
-                    setLatitude(""); setLongitude("");
+                    setName("");
+                    setAddress("");
+                    setCity("");
+                    setContact("");
+                    setSpecialization("");
+                    setLatitude("");
+                    setLongitude("");
                   } else {
                     alert("❌ Submission failed: " + data.message);
                   }
@@ -316,25 +348,76 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
                 }
               }}
             >
-              <input type="text" className="w-full border p-2 rounded" placeholder="Hospital Name" value={name} onChange={(e) => setName(e.target.value)} required />
-              <input type="text" className="w-full border p-2 rounded" placeholder="Address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-              <input type="text" className="w-full border p-2 rounded" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} required />
-              <input type="text" className="w-full border p-2 rounded" placeholder="Contact Number" value={contact} onChange={(e) => setContact(e.target.value)} required />
-              <input type="text" className="w-full border p-2 rounded" placeholder="Specializations (comma-separated)" value={specialization} onChange={(e) => setSpecialization(e.target.value)} required />
-              <input type="number" className="w-full border p-2 rounded" placeholder="Latitude" value={latitude} onChange={(e) => setLatitude(e.target.value)} required />
-              <input type="number" className="w-full border p-2 rounded" placeholder="Longitude" value={longitude} onChange={(e) => setLongitude(e.target.value)} required />
+              <input
+                type="text"
+                className="w-full border p-2 rounded"
+                placeholder="Hospital Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                className="w-full border p-2 rounded"
+                placeholder="Address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                className="w-full border p-2 rounded"
+                placeholder="City"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                className="w-full border p-2 rounded"
+                placeholder="Contact Number"
+                value={contact}
+                onChange={(e) => setContact(e.target.value)}
+                required
+              />
+              <input
+                type="text"
+                className="w-full border p-2 rounded"
+                placeholder="Specializations (comma-separated)"
+                value={specialization}
+                onChange={(e) => setSpecialization(e.target.value)}
+                required
+              />
+              <input
+                type="number"
+                className="w-full border p-2 rounded"
+                placeholder="Latitude"
+                value={latitude}
+                onChange={(e) => setLatitude(e.target.value)}
+                required
+              />
+              <input
+                type="number"
+                className="w-full border p-2 rounded"
+                placeholder="Longitude"
+                value={longitude}
+                onChange={(e) => setLongitude(e.target.value)}
+                required
+              />
 
-              <button type="submit" className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700">
+              <button
+                type="submit"
+                className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+              >
                 ➕ Submit Hospital
               </button>
             </form>
           </div>
         )}
 
-
         {/* Manage Beds */}
         {activeTab === "addBeds" && (
-          <div className="bg-white p-6 rounded shadow">
+          <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded shadow">
             <h2 className="text-xl font-bold text-center mb-4">➕ Add Bed</h2>
 
             <form
@@ -377,10 +460,9 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
               }}
               className="space-y-4"
             >
-
               {/* Hospital Select */}
               <select
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border dark:text-gray-300 dark:bg-gray-600 rounded"
                 value={bedForm.hospital_id}
                 onChange={(e) =>
                   setBedForm({ ...bedForm, hospital_id: e.target.value })
@@ -397,7 +479,7 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
 
               {/* Bed Type */}
               <select
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border dark:text-gray-300 dark:bg-gray-600 rounded"
                 value={bedForm.bed_type}
                 onChange={(e) =>
                   setBedForm({ ...bedForm, bed_type: e.target.value })
@@ -414,19 +496,16 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
               <input
                 type="number"
                 placeholder="Number of Beds"
-                className="w-full p-2 border rounded"
+                className="w-full  text-black dark:text-gray-300 dark:bg-gray-600 p-2 border rounded"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
-                 
               />
-
-
 
               {/* Price */}
               <input
                 type="number"
                 placeholder="Price per day"
-                className="w-full p-2 border rounded"
+                className="w-full p-2 border text-black dark:text-gray-300 dark:bg-gray-600 rounded"
                 value={bedForm.price_per_day}
                 onChange={(e) =>
                   setBedForm({ ...bedForm, price_per_day: e.target.value })
@@ -459,15 +538,17 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
         {/* Manage Bookings */}
 
         {activeTab === "manageBookings" && (
-          <div className="bg-white p-6 rounded shadow">
-            <h2 className="text-xl font-bold mb-4 text-center">📋 Pending Bed Bookings</h2>
+          <div className="bg-gray-100 dark:bg-gray-700 p-6 rounded shadow">
+            <h2 className="text-xl font-bold mb-4 text-center">
+              📋 Pending Bed Bookings
+            </h2>
 
             {pendingBookings.length === 0 ? (
-              <p className="text-gray-600 text-center">No pending bookings</p>
+              <p className="text-gray-700 dark:text-gray-300 text-center">No pending bookings</p>
             ) : (
               <table className="w-full table-auto border">
                 <thead>
-                  <tr className="bg-gray-200">
+                  <tr className="bg-gray-200 dark:bg-gray-800">
                     <th className="p-2 border">User</th>
                     <th className="p-2 border">Email</th>
                     <th className="p-2 border">Hospital</th>
@@ -484,17 +565,25 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
                       <td className="p-2 border">{booking.user.email}</td>
                       <td className="p-2 border">{booking.hospital.name}</td>
                       <td className="p-2 border">{booking.disease}</td>
-                      <td className="p-2 border capitalize">{booking.bed_type}</td>
-                      <td className="p-2 border capitalize">{booking.status}</td>
+                      <td className="p-2 border capitalize">
+                        {booking.bed_type}
+                      </td>
+                      <td className="p-2 border capitalize">
+                        {booking.status}
+                      </td>
                       <td className="p-2 border space-x-2">
                         <button
-                          onClick={() => handleUpdateStatus(booking._id, "confirmed")}
+                          onClick={() =>
+                            handleUpdateStatus(booking._id, "confirmed")
+                          }
                           className="bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
                         >
                           ✅ Confirm
                         </button>
                         <button
-                          onClick={() => handleUpdateStatus(booking._id, "rejected")}
+                          onClick={() =>
+                            handleUpdateStatus(booking._id, "rejected")
+                          }
                           className="bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
                         >
                           ❌ Reject
@@ -508,22 +597,26 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
           </div>
         )}
 
-
-
-        {/* add ambulance */} 
+        {/* add ambulance */}
         {activeTab === "addAmbulance" && (
           <div>
-            <h2 className="text-xl font-bold text-purple-700 mb-4">🚑 Add New Ambulance</h2>
+            <h2 className="text-xl font-bold text-purple-700 mb-4">
+              🚑 Add New Ambulance
+            </h2>
             <form
               onSubmit={handleAddAmbulance}
-              className="bg-white p-4 rounded shadow max-w-md space-y-4"
+              className="bg-gray-100 p-4 rounded dark:bg-gray-700 shadow  max-w-md space-y-4"
             >
               <div>
-                <label className="block text-sm font-semibold">Select Hospital</label>
+                <label className="block text-sm font-semibold">
+                  Select Hospital
+                </label>
                 <select
                   name="hospital_id"
                   value={formData.hospital_id}
-                  onChange={(e) => setFormData({ ...formData, hospital_id: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, hospital_id: e.target.value })
+                  }
                   className="w-full p-2 border rounded"
                   required
                 >
@@ -537,11 +630,15 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold">Ambulance Type</label>
+                <label className="block text-sm font-semibold">
+                  Ambulance Type
+                </label>
                 <select
                   name="ambulance_type"
                   value={formData.ambulance_type}
-                  onChange={(e) => setFormData({ ...formData, ambulance_type: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, ambulance_type: e.target.value })
+                  }
                   className="w-full p-2 border rounded"
                   required
                 >
@@ -553,22 +650,30 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold">Vehicle Number</label>
+                <label className="block text-sm font-semibold">
+                  Vehicle Number
+                </label>
                 <input
                   type="text"
                   value={formData.vehicle_number}
-                  onChange={(e) => setFormData({ ...formData, vehicle_number: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, vehicle_number: e.target.value })
+                  }
                   className="w-full p-2 border rounded"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold">Price Per KM (₹)</label>
+                <label className="block text-sm font-semibold">
+                  Price Per KM (₹)
+                </label>
                 <input
                   type="number"
                   value={formData.price_per_km}
-                  onChange={(e) => setFormData({ ...formData, price_per_km: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price_per_km: e.target.value })
+                  }
                   className="w-full p-2 border rounded"
                   required
                   min={1}
@@ -587,30 +692,52 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
 
         {/* Manage Ambulances */}
         {activeTab === "manageAmbulances" && (
-          <div className="p-4">
-            <h2 className="text-xl font-bold text-purple-700 mb-4">🚨 Pending Ambulance Requests</h2>
+          <div className="p-4 bg-gray-200 dark:bg-gray-800 dark:text-gray-100 rounded shadow">
+            <h2 className="text-xl font-bold text-purple-700 mb-4">
+              🚨 Pending Ambulance Requests
+            </h2>
 
             {ambulanceRequests.length === 0 ? (
-              <p className="text-sm text-gray-500">No pending requests.</p>
+              <p className="text-sm text-gray-700 dark:text-gray-800">No pending requests.</p>
             ) : (
               <ul className="space-y-4">
                 {ambulanceRequests.map((req) => (
-                  <li key={req._id} className="p-4 border rounded bg-gray-50 shadow-sm">
-                    <p><strong>👤 User:</strong> {req.user.fullName} ({req.user.email})</p>
-                    <p><strong>🏥 Hospital:</strong> {req.hospital.name}</p>
-                    <p><strong>🚑 Ambulance:</strong> {req.ambulance.ambulance_type} - {req.ambulance.vehicle_number}</p>
-                    <p><strong>📍 Pickup:</strong> {req.pickup_location}</p>
-                    <p><strong>📍 Drop:</strong> {req.drop_location}</p>
+                  <li
+                    key={req._id}
+                    className="p-4 border rounded bg-gray-100 dark:bg-gray-800 shadow-sm"
+                  >
+                    <p>
+                      <strong>👤 User:</strong> {req.user.fullName} (
+                      {req.user.email})
+                    </p>
+                    <p>
+                      <strong>🏥 Hospital:</strong> {req.hospital.name}
+                    </p>
+                    <p>
+                      <strong>🚑 Ambulance:</strong>{" "}
+                      {req.ambulance.ambulance_type} -{" "}
+                      {req.ambulance.vehicle_number}
+                    </p>
+                    <p>
+                      <strong>📍 Pickup:</strong> {req.pickup_location}
+                    </p>
+                    <p>
+                      <strong>📍 Drop:</strong> {req.drop_location}
+                    </p>
 
                     <div className="mt-2 flex gap-4">
                       <button
-                        onClick={() => handleUpdateAmbulanceStatus(req._id, "confirmed")}
+                        onClick={() =>
+                          handleUpdateAmbulanceStatus(req._id, "confirmed")
+                        }
                         className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition text-sm"
                       >
                         ✅ Approve
                       </button>
                       <button
-                        onClick={() => handleUpdateAmbulanceStatus(req._id, "rejected")}
+                        onClick={() =>
+                          handleUpdateAmbulanceStatus(req._id, "rejected")
+                        }
                         className="bg-red-600 text-white px-4 py-1 rounded hover:bg-red-700 transition text-sm"
                       >
                         ❌ Reject
@@ -622,10 +749,9 @@ const handleUpdateAmbulanceStatus = async (bookingId, status) => {
             )}
           </div>
         )}
-
       </main>
 
-      <Footer />
+      <Footer isOpen={isOpen} />
     </div>
   );
 };

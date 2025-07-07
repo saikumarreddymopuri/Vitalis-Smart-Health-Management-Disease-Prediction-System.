@@ -10,73 +10,77 @@ const AdminDashboard = () => {
   const [pendingHospitals, setPendingHospitals] = useState([]);
   const token = localStorage.getItem("token");
 
-
   // Fetch pending hospitals
-useEffect(() => {
-  const fetchPendingHospitals = async () => {
-    if (activeTab === "pending") {
-      try {
-        const res = await fetch("http://localhost:4000/api/hospitals/pending", {
+  useEffect(() => {
+    const fetchPendingHospitals = async () => {
+      if (activeTab === "pending") {
+        try {
+          const res = await fetch(
+            "http://localhost:4000/api/hospitals/pending",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          const data = await res.json();
+          setPendingHospitals(data.data || []);
+          console.log("📥 Pending hospitals:", data.data);
+        } catch (err) {
+          console.error("❌ Error fetching pending:", err);
+        }
+      }
+    };
+
+    fetchPendingHospitals();
+  }, [activeTab]);
+
+  const handleApprove = async (id) => {
+    try {
+      const res = await fetch(
+        `http://localhost:4000/api/hospitals/${id}/verify`,
+        {
+          method: "PUT",
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        });
-        const data = await res.json();
-        setPendingHospitals(data.data || []);
-        console.log("📥 Pending hospitals:", data.data);
-      } catch (err) {
-        console.error("❌ Error fetching pending:", err);
+        }
+      );
+
+      if (res.ok) {
+        setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
+        alert("✅ Approved successfully");
       }
+    } catch (err) {
+      console.error("❌ Error approving:", err);
     }
   };
 
-  fetchPendingHospitals();
-}, [activeTab]);
+  const handleReject = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:4000/api/hospitals/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-
-const handleApprove = async (id) => {
-  try {
-    const res = await fetch(`http://localhost:4000/api/hospitals/${id}/verify`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (res.ok) {
-      setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
-      alert("✅ Approved successfully");
+      if (res.ok) {
+        setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
+        alert("❌ Rejected & removed");
+      }
+    } catch (err) {
+      console.error("❌ Error rejecting:", err);
     }
-  } catch (err) {
-    console.error("❌ Error approving:", err);
-  }
-};
-
-const handleReject = async (id) => {
-  try {
-    const res = await fetch(`http://localhost:4000/api/hospitals/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (res.ok) {
-      setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
-      alert("❌ Rejected & removed");
-    }
-  } catch (err) {
-    console.error("❌ Error rejecting:", err);
-  }
-};
-
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-100">
+    <div className="min-h-screen bg-white pt-20 pb-16 text-black dark:bg-gray-900 dark:text-white transition-colors duration-300">
       <Header
         toggleSidebar={() => setIsOpen(!isOpen)}
         avatarUrl={user.avatar}
         name={user.fullName}
+        isOpen={isOpen}
       />
       <Sidebar
         isOpen={isOpen}
@@ -85,7 +89,7 @@ const handleReject = async (id) => {
         role={user.role}
       />
 
-      <main className="ml-0 md:ml-64 p-6 flex-grow">
+      <main className={`p-6 flex-grow transition-all duration-300 ${isOpen ? "ml-64" : "ml-0"}`}>
         {activeTab === "" && (
           <div className="flex flex-col items-center justify-center h-[70vh] text-center">
             <img
@@ -96,34 +100,63 @@ const handleReject = async (id) => {
             <h1 className="text-3xl font-bold text-blue-700 mb-2">
               Welcome to MediConnect 👋
             </h1>
-            <p className="text-gray-600">Manage and monitor the system effectively</p>
+            <p className="text-gray-700 dark:text-gray-300">
+              Manage and monitor the system effectively
+            </p>
           </div>
         )}
 
         {activeTab === "profile" && (
-          <div className="bg-white p-6 rounded shadow">
-            <h2 className="text-xl font-bold">Your Profile</h2>
-            <p><strong>Name:</strong> {user.fullName}</p>
-            <p><strong>Email:</strong> {user.email}</p>
-            <p><strong>Role:</strong> {user.role}</p>
-          </div>
-        )}
+  <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-md max-w-xl mx-auto transition-all duration-300">
+    <h2 className="text-2xl font-bold text-center text-blue-700 dark:text-blue-400 mb-6">
+      👤 Your Profile
+    </h2>
+
+    <div className="space-y-4 text-gray-700 dark:text-gray-200">
+      <div className="flex justify-between border-b border-gray-300 dark:border-gray-600 pb-2">
+        <span className="font-medium">Name:</span>
+        <span>{user.fullName}</span>
+      </div>
+
+      <div className="flex justify-between border-b border-gray-300 dark:border-gray-600 pb-2">
+        <span className="font-medium">Email:</span>
+        <span>{user.email}</span>
+      </div>
+
+      <div className="flex justify-between pb-2">
+        <span className="font-medium">Role:</span>
+        <span className="capitalize">{user.role}</span>
+      </div>
+    </div>
+  </div>
+)}
 
 
         {activeTab === "pending" && (
-          <div className="bg-white p-6 rounded shadow">
-            <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">Pending Hospital Requests</h2>
+          <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow">
+            <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">
+              Pending Hospital Requests
+            </h2>
 
             {pendingHospitals.length === 0 ? (
-              <p className="text-center text-gray-500">No pending requests 🎉</p>
+              <p className="text-center text-gray-700 dark:text-gray-300">
+                No pending requests 🎉
+              </p>
             ) : (
               <ul className="space-y-4">
                 {pendingHospitals.map((hospital) => (
                   <li key={hospital._id} className="border p-4 rounded shadow">
                     <h3 className="font-bold text-lg">{hospital.name}</h3>
-                    <p><strong>City:</strong> {hospital.city}</p>
-                    <p><strong>Contact:</strong> {hospital.contact_number}</p>
-                    <p><strong>Specialization:</strong> {hospital.specialization_offered}</p>
+                    <p>
+                      <strong>City:</strong> {hospital.city}
+                    </p>
+                    <p>
+                      <strong>Contact:</strong> {hospital.contact_number}
+                    </p>
+                    <p>
+                      <strong>Specialization:</strong>{" "}
+                      {hospital.specialization_offered}
+                    </p>
 
                     <div className="mt-3 flex gap-4">
                       <button
@@ -146,23 +179,22 @@ const handleReject = async (id) => {
           </div>
         )}
 
-
         {activeTab === "users" && (
-          <div className="bg-white p-6 rounded shadow text-center">
+          <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow text-center">
             <h2 className="text-xl font-bold">Manage Users</h2>
             <p>👥 User control panel coming soon...</p>
           </div>
         )}
 
         {activeTab === "analytics" && (
-          <div className="bg-white p-6 rounded shadow text-center">
+          <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow text-center">
             <h2 className="text-xl font-bold">System Analytics</h2>
             <p>📊 Reports and analytics coming soon...</p>
           </div>
         )}
       </main>
 
-      <Footer />
+      <Footer isOpen={isOpen} />
     </div>
   );
 };

@@ -1,2 +1,30 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
+
+.custom-toast {
+  position: relative;
+  overflow: hidden;
+}
+
+.custom-toast::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(to right, #22d3ee, #3b82f6); /* cyan to blue */
+  animation: toastProgress 5s linear forwards;
+  width: 100%;
+  border-radius: 0 0 8px 8px;
+}
+
+@keyframes toastProgress {
+  0% {
+    width: 100%;
+  }
+  100% {
+    width: 0%;
+  }
+}
+
+

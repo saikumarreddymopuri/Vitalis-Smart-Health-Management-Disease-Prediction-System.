@@ -88,14 +88,13 @@ export const verifyHospital = asyncHandler(async (req, res) => {
 export const rejectHospital = asyncHandler(async (req, res) => {
   const { id } = req.params;
   await Hospital.findByIdAndDelete(id);
+  console.log("Rejected hospital with ID:", id);
   await notifyUser(
   hospital.createdBy, // this must be stored when hospital was created
   "Operator",
   "🏥 Hospital Request Reviewed",
   `Admin has ${hospital.is_verified ? "approved" : "rejected"} your hospital: ${hospital.name}`
 );
-
-
   return res
     .status(200)
     .json(new ApiResponse(200, null, "Hospital request rejected and removed"));

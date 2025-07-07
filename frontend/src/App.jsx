@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useContext } from "react";
 import { UserContext } from "./context/UserContext";
+import { Toaster } from "react-hot-toast";
 
 import Login from "./components/Auth/Login.jsx";
 import Register from "./components/Auth/Register.jsx";
@@ -29,6 +30,24 @@ const App = () => {
   };
 
   return (
+  <>
+    <Toaster
+        position="top-right"
+        reverseOrder={false}
+        toastOptions={{
+          duration: 5000,
+          className: "custom-toast",
+          style: {
+            background: "#1f2937", // dark gray (Tailwind's gray-800)
+            color: "#ffffff",
+            fontSize: "1.1rem",
+            padding: "1.25rem 1.75rem",
+            borderRadius: "8px",
+          },
+        }}
+      />
+
+
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -40,11 +59,11 @@ const App = () => {
       <Route path="/user-dashboard" element={<UserDashboard />} />
       <Route path="/admin-dashboard" element={<AdminDashboard />} />
       <Route path="/operator-dashboard" element={<OperatorDashboard />} />
-      {/* Redirect root to login */}
-
       <Route path="/" element={<Navigate to="/login" />} />
     </Routes>
-  );
+  </>
+);
+
 };
 
 export default App;
