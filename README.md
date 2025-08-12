@@ -30,8 +30,9 @@ Vitalis is a comprehensive hospital management system designed to streamline hos
 * **Utilities**: JWT for authentication, Razorpay for payments, Cloudinary for image uploads
 * **Other Tools**: Prettier, ESLint, dotenv
 
-
 ---
+
+ 
 
 ## 🚀 Getting Started
 
