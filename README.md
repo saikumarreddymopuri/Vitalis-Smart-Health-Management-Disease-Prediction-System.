@@ -1,4 +1,4 @@
-# Vitalis-Smart-Health-Management-Disease-Prediction-System.
+# Vitalis: Smart Health Management & Disease Prediction System
 
 A comprehensive hospital management system designed to streamline hospital operations, manage requests, and provide a seamless interface for operators, admins, and users.
 
@@ -17,9 +17,9 @@ Vitalis is a comprehensive hospital management system designed to streamline hos
 * **Admin Dashboard**: Allows admins to approve or reject hospital requests and manage pending operations.
 * **Real-Time Notifications**: Uses Socket.IO to notify admins of new hospital requests.
 * **Authentication**: Secure login and session management using JWT.
-* **Disease Prediction**: Predict diseases based on symptoms using a machine learning model.
-* **Ambulance Booking**: Book ambulances with real-time availability and pricing.
-* **Bed Management**: Manage hospital beds with availability and pricing details.
+* **Disease Prediction**: Predicts diseases based on symptoms using a machine learning model.
+* **Ambulance Booking**: Books ambulances with real-time availability and pricing.
+* **Bed Management**: Manages hospital beds with availability and pricing details.
 
 ---
 
@@ -29,14 +29,6 @@ Vitalis is a comprehensive hospital management system designed to streamline hos
 * **Frontend**: React, Vite, Tailwind CSS
 * **Utilities**: JWT for authentication, Razorpay for payments, Cloudinary for image uploads
 * **Other Tools**: Prettier, ESLint, dotenv
-
----
-
-## 📸 Screenshots/Demo
-
-* **User Dashboard**: Search for hospitals, book beds, and predict diseases.
-* **Operator Dashboard**: Add hospitals, manage beds, and handle ambulance bookings.
-* **Admin Dashboard**: Approve or reject hospital requests.
 
 
 ---
@@ -100,35 +92,36 @@ Vitalis is a comprehensive hospital management system designed to streamline hos
 
 Vitalis-Smart-Health-Management-Disease-Prediction-System/
 ├── backend/
-│   ├── src/
-│   │   ├── controllers/
-│   │   ├── db/
-│   │   ├── middlewares/
-│   │   ├── models/
-│   │   ├── routes/
-│   │   ├── utils/
-│   │   ├── app.js
-│   │   ├── constants.js
-│   │   ├── index.js
-│   │   └── server.js
 │   ├── .env
 │   ├── .gitignore
 │   ├── package.json
-│   └── public/
+│   └── src/
+│       ├── app.js
+│       ├── constants.js
+│       ├── controllers/
+│       ├── db/
+│       ├── index.js
+│       ├── middlewares/
+│       ├── models/
+│       ├── routes/
+│       ├── server.js
+│       └── utils/
+│
 ├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   ├── App.jsx
-│   │   ├── App.css
-│   │   └── index.css
 │   ├── .env
 │   ├── .gitignore
 │   ├── package.json
+│   ├── public/
 │   ├── vite.config.js
-│   └── public/
+│   └── src/
+│       ├── components/
+│       ├── pages/
+│       ├── App.css
+│       ├── App.jsx
+│       └── index.css
+│
 └── mlmodel/
-├── app.py
-├── train_model.py
-├── requirements.txt
-└── data/
+    ├── data/
+    ├── app.py
+    ├── requirements.txt
+    └── train_model.py
