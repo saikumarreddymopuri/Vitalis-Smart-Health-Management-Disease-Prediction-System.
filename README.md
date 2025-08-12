@@ -122,7 +122,7 @@ Vitalis-Smart-Health-Management-Disease-Prediction-System/
 │       └── index.css
 │
 └── mlmodel/
-    ├── data/
-    ├── app.py
-    ├── requirements.txt
-    └── train_model.py
+├── data/
+├── app.py
+├── requirements.txt
+└── train_model.py
