@@ -308,4 +308,89 @@ export const refreshAccessToken = async (req, res, next) => {
 };
 
 
+ 
 
+// ADMIN CONTROLLERS
+// ADMIN: Get all users (role: "User")
+export const getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find({ role: "User" }).select(
+    "-password -refreshToken -__v"
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, users, "All users fetched successfully"));
+});
+
+// ADMIN: Get all operators (role: "Operator")
+export const getAllOperators = asyncHandler(async (req, res) => {
+  const operators = await User.find({ role: "Operator" }).select(
+    "-password -refreshToken -__v"
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, operators, "All operators fetched successfully"));
+});
+
+// ADMIN: Get details for a single user by ID
+export const getUserDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await User.findById(id).select("-password -refreshToken -__v");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User details fetched successfully"));
+});
+
+// ADMIN: Update a user's details by ID
+export const updateUserDetails = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  // We only allow updating these fields
+  const { fullName, username, email, phone } = req.body;
+
+  const user = await User.findByIdAndUpdate(
+    id,
+    {
+      $set: {
+        fullName,
+        username,
+        email,
+        phone,
+      },
+    },
+    { new: true } // This returns the updated document
+  ).select("-password -refreshToken -__v");
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "User details updated successfully"));
+});
+
+// ADMIN: Delete a user by ID
+export const deleteUser = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // Prevent an admin from deleting themselves
+  if (req.user._id.toString() === id) {
+    throw new ApiError(400, "Admin cannot delete themselves");
+  }
+
+  const user = await User.findByIdAndDelete(id);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "User deleted successfully"));
+});

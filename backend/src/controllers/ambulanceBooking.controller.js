@@ -2,7 +2,8 @@
 
 import { AmbulanceBooking } from "../models/ambulanceBooking.model.js";
 import { Ambulance } from "../models/ambulance.model.js";
-import  Hospital  from "../models/hospital.model.js";
+import Hospital from "../models/hospital.model.js";
+import { User } from "../models/user.model.js"; // ✅ Import User model (not Admin)
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -16,28 +17,36 @@ export const bookAmbulance = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
+  // 🚑 Check if ambulance exists and is available
   const ambulance = await Ambulance.findById(ambulanceId);
   if (!ambulance || !ambulance.is_available) {
     throw new ApiError(404, "Selected ambulance is not available");
   }
 
+  // 🧾 Create booking
   const booking = await AmbulanceBooking.create({
     user: req.user._id,
     hospital: hospitalId,
     ambulance: ambulanceId,
     pickup_location,
     drop_location,
+    status: "pending",
   });
-  const operators = await Admin.find({ role: "operator" });
-for (const op of operators) {
-  await notifyUser(
-    op.user_id,
-    "Operator",
-    "🚑 New Ambulance Request",
-    `A user requested ambulance from ${pickup_location} to ${drop_location}`
-  );
-}
 
+  // 🔔 Notify all operators about this booking
+  const operators = await User.find({ role: "operator" }); // ✅ Fix: use User
+  if (operators.length > 0) {
+    for (const op of operators) {
+      await notifyUser(
+        op._id, // ✅ Fix: use _id since operators are users
+        "Operator",
+        "🚑 New Ambulance Request",
+        `A user requested an ambulance from ${pickup_location} to ${drop_location}`
+      );
+    }
+  } else {
+    console.warn("⚠️ No operators found to notify about ambulance request.");
+  }
 
   return res
     .status(201)
@@ -73,7 +82,7 @@ export const updateAmbulanceBookingStatus = asyncHandler(async (req, res) => {
   const booking = await AmbulanceBooking.findById(bookingId);
   if (!booking) throw new ApiError(404, "Booking not found");
 
-  // If confirmed, set ambulance unavailable
+  // If confirmed, mark ambulance unavailable
   if (status === "confirmed") {
     const ambulance = await Ambulance.findById(booking.ambulance);
     if (!ambulance || !ambulance.is_available) {
@@ -86,13 +95,14 @@ export const updateAmbulanceBookingStatus = asyncHandler(async (req, res) => {
 
   booking.status = status;
   await booking.save();
-  await notifyUser(
-  booking.user,
-  "User",
-  "🚑 Ambulance Booking Status Updated",
-  `Your ambulance request has been ${booking.status}`
-);
 
+  // 🔔 Notify user about update
+  await notifyUser(
+    booking.user,
+    "User",
+    "🚑 Ambulance Booking Status Updated",
+    `Your ambulance request has been ${booking.status}.`
+  );
 
   return res
     .status(200)

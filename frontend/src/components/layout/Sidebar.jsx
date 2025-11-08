@@ -20,7 +20,8 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role }) => {
     Admin: [
       { label: "Profile", tab: "profile" },
       { label: "Pending Requests", tab: "pending" },
-      { label: "Manage Users", tab: "users" },
+      { label: "👥 Manage Customers", tab: "manageCustomers" },
+      { label: "🛠️ Manage Operators", tab: "manageOperators" },
       { label: "System Analytics", tab: "analytics" },
     ],
   };

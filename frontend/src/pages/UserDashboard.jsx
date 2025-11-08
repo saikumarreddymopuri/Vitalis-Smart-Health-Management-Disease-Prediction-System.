@@ -81,6 +81,12 @@ const UserDashboard = () => {
     }
   }, [activeTab]);
 
+  const handleRemoveSymptom = (symptomToRemove) => {
+    setSelectedSymptoms((prevSymptoms) =>
+      prevSymptoms.filter((symptom) => symptom !== symptomToRemove)
+    );
+  };
+
   const fetchUserBookings = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -534,17 +540,25 @@ const UserDashboard = () => {
 
             {/* Display selected symptoms */}
             {selectedSymptoms.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {selectedSymptoms.map((symptom, index) => (
-                  <span
-                    key={index}
-                    className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
+            <div className="flex flex-wrap gap-2 mb-4">
+              {selectedSymptoms.map((symptom, index) => (
+                <span
+                  key={index}
+                  className="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
+                >
+                  {symptom}
+                  {/* This is the new 'x' button */}
+                  <button
+                    onClick={() => handleRemoveSymptom(symptom)}
+                    className="ml-2 text-blue-700 hover:text-blue-900 font-bold"
+                    title="Remove symptom"
                   >
-                    {symptom}
-                  </span>
-                ))}
-              </div>
-            )}
+                    &times;
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
             {/* Predict button */}
 

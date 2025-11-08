@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import Header from "../components/Layout/Header.jsx";
 import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
+// --- NEW IMPORT ---
+import UserManagementPanel from "../components/Admin/UserManagementPanel.jsx";
 
 const AdminDashboard = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,7 +35,7 @@ const AdminDashboard = () => {
     };
 
     fetchPendingHospitals();
-  }, [activeTab]);
+  }, [activeTab, token]); // --- Added token to dependency array ---
 
   const handleApprove = async (id) => {
     try {
@@ -49,7 +51,7 @@ const AdminDashboard = () => {
 
       if (res.ok) {
         setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
-        alert("✅ Approved successfully");
+        alert("✅ Approved successfully"); // --- We will change this later ---
       }
     } catch (err) {
       console.error("❌ Error approving:", err);
@@ -67,7 +69,7 @@ const AdminDashboard = () => {
 
       if (res.ok) {
         setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
-        alert("❌ Rejected & removed");
+        alert("❌ Rejected & removed"); // --- We will change this later ---
       }
     } catch (err) {
       console.error("❌ Error rejecting:", err);
@@ -89,7 +91,11 @@ const AdminDashboard = () => {
         role={user.role}
       />
 
-      <main className={`p-6 flex-grow transition-all duration-300 ${isOpen ? "ml-64" : "ml-0"}`}>
+      <main
+        className={`p-6 flex-grow transition-all duration-300 ${
+          isOpen ? "ml-64" : "ml-0"
+        }`}
+      >
         {activeTab === "" && (
           <div className="flex flex-col items-center justify-center h-[70vh] text-center">
             <img
@@ -107,30 +113,29 @@ const AdminDashboard = () => {
         )}
 
         {activeTab === "profile" && (
-  <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-md max-w-xl mx-auto transition-all duration-300">
-    <h2 className="text-2xl font-bold text-center text-blue-700 dark:text-blue-400 mb-6">
-      👤 Your Profile
-    </h2>
+          <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded-xl shadow-md max-w-xl mx-auto transition-all duration-300">
+            <h2 className="text-2xl font-bold text-center text-blue-700 dark:text-blue-400 mb-6">
+              👤 Your Profile
+            </h2>
 
-    <div className="space-y-4 text-gray-700 dark:text-gray-200">
-      <div className="flex justify-between border-b border-gray-300 dark:border-gray-600 pb-2">
-        <span className="font-medium">Name:</span>
-        <span>{user.fullName}</span>
-      </div>
+            <div className="space-y-4 text-gray-700 dark:text-gray-200">
+              <div className="flex justify-between border-b border-gray-300 dark:border-gray-600 pb-2">
+                <span className="font-medium">Name:</span>
+                <span>{user.fullName}</span>
+              </div>
 
-      <div className="flex justify-between border-b border-gray-300 dark:border-gray-600 pb-2">
-        <span className="font-medium">Email:</span>
-        <span>{user.email}</span>
-      </div>
+              <div className="flex justify-between border-b border-gray-300 dark:border-gray-600 pb-2">
+                <span className="font-medium">Email:</span>
+                <span>{user.email}</span>
+              </div>
 
-      <div className="flex justify-between pb-2">
-        <span className="font-medium">Role:</span>
-        <span className="capitalize">{user.role}</span>
-      </div>
-    </div>
-  </div>
-)}
-
+              <div className="flex justify-between pb-2">
+                <span className="font-medium">Role:</span>
+                <span className="capitalize">{user.role}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {activeTab === "pending" && (
           <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow">
@@ -179,13 +184,25 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {activeTab === "users" && (
-          <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow text-center">
-            <h2 className="text-xl font-bold">Manage Users</h2>
-            <p>👥 User control panel coming soon...</p>
-          </div>
+        {/* --- NEW USER MANAGEMENT SECTIONS --- */}
+        {activeTab === "manageCustomers" && (
+          <UserManagementPanel
+            roleToManage="User"
+            token={token}
+            key="customers"
+          />
         )}
 
+        {activeTab === "manageOperators" && (
+          <UserManagementPanel
+            roleToManage="Operator"
+            token={token}
+            key="operators"
+          />
+        )}
+        {/* --- END NEW SECTIONS --- */}
+
+        {/* --- OLD "users" tab is removed, but we keep analytics --- */}
         {activeTab === "analytics" && (
           <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow text-center">
             <h2 className="text-xl font-bold">System Analytics</h2>
