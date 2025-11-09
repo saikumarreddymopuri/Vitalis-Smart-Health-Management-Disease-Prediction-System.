@@ -18,8 +18,8 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "confirmed", "cancelled", "rejected"],
-    default: "pending",
+    enum: ["pending", "confirmed", "cancelled", "rejected", "payment_pending"],
+    default: "payment_pending", // --- CHANGE DEFAULT ---
   },
   disease: {
     type: String,
@@ -33,7 +33,24 @@ const bookingSchema = new mongoose.Schema({
   booking_date: {
     type: Date,
     default: Date.now,
-  }
+  },
+
+  // --- NEW PAYMENT FIELDS ---
+  paymentId: {
+    type: String,
+    default: null,
+  },
+  orderId: {
+    type: String,
+    default: null,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "success", "failed"],
+    default: "pending",
+  },
+  // --- END NEW FIELDS ---
+
 }, { timestamps: true });
 
 export const Booking = mongoose.model("BedBooking", bookingSchema);

@@ -1,6 +1,7 @@
 // src/components/Notifications.jsx
 import React, { useState, useEffect } from "react";
 import { socket, useSocket } from "../../hooks/useSocket";
+import { toast } from "react-hot-toast"; // --- Import toast for feedback ---
 
 const Notifications = ({ userId }) => {
   const [notifs, setNotifs] = useState([]);
@@ -35,6 +36,32 @@ const Notifications = ({ userId }) => {
     );
   };
 
+  // --- THIS IS THE NEW DELETE FUNCTION ---
+  const handleDeleteNotification = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:4000/api/notifications/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        credentials: "include",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to delete notification");
+      }
+
+      // Remove from state instantly
+      setNotifs((prev) => prev.filter((n) => n._id !== id));
+      toast.success("Notification removed!");
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+  // --- END OF NEW FUNCTION ---
+
   return (
     <div className="relative">
       {/* 🔔 Bell Icon */}
@@ -68,14 +95,29 @@ const Notifications = ({ userId }) => {
             >
               <p className="font-semibold text-black dark:text-white">{n.title}</p>
               <p className="text-sm text-gray-600 dark:text-gray-300">{n.message}</p>
-              {!n.seen && (
+              
+              {/* --- NEW BUTTON CONTAINER --- */}
+              <div className="flex items-center gap-4 mt-1">
+                {!n.seen && (
+                  <button
+                    onClick={() => markSeen(n._id)}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    Mark as read
+                  </button>
+                )}
+                
+                {/* --- THIS IS THE NEW DELETE BUTTON --- */}
                 <button
-                  onClick={() => markSeen(n._id)}
-                  className="text-xs text-blue-600 dark:text-blue-400 mt-1 hover:underline"
+                  onClick={() => handleDeleteNotification(n._id)}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline"
                 >
-                  Mark as read
+                  Remove
                 </button>
-              )}
+                {/* --- END OF NEW BUTTON --- */}
+              </div>
+              {/* --- END OF BUTTON CONTAINER --- */}
+
             </div>
           ))}
         </div>

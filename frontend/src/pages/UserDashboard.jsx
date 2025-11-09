@@ -34,9 +34,11 @@ const UserDashboard = () => {
   const [userBookings, setUserBookings] = useState([]);
 
   //states for maps
-  const [selectedHospital, setSelectedHospital] = useState(null);
+  // const [selectedHospital, setSelectedHospital] = useState(null);
   const [userCoords, setUserCoords] = useState(null);
-  const [selectedHospitalForMap, setSelectedHospitalForMap] = useState(null);
+  const [openMapId, setOpenMapId] = useState(null);
+  // const [selectedHospitalForMap, setSelectedHospitalForMap] = useState(null);
+
   //states for ambulance booking
   const [selectedAmbulanceInfo, setSelectedAmbulanceInfo] = useState(null);
   const [ambulanceFormData, setAmbulanceFormData] = useState({
@@ -157,122 +159,244 @@ const UserDashboard = () => {
   }, [activeTab, selectedAmbulanceInfo]);
 
   //razorpay payment logic
-  const handlePayment = async ({
-    amount,
-    hospitalId,
-    bed_id,
-    disease,
-    bed_type,
-    bedsCount,
-  }) => {
-    console.log("📨 handlePayment called with:", {
-      amount,
-      hospitalId,
-      bed_id,
-      disease,
-    });
+
+  const handlePayment = async (bookingDetails) => {
+    const { amount, hospitalId, bed_id, disease, bed_type, bedsCount } =
+      bookingDetails;
 
     const token = localStorage.getItem("token");
     if (!token) {
-      //alert("❌ You must be logged in to proceed");
-      toast.error("❌ You must be logged in to proceed");
+      toast.error("You must be logged in to make a payment.");
       return;
     }
 
-    // Create order from backend
-    const res = await fetch("http://localhost:4000/api/payments/create-order", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        amount,
-        receipt: "booking_" + Date.now(),
-      }),
-    });
+    try {
+      // --- STEP 1: Create the Razorpay Order ---
+      setLoading(true); // Show loading spinner
+      
+      // --- THIS IS THE FIX (Line 1) ---
+      // I changed the URL to /api/payments, just like your app.js
+      const orderRes = await fetch(
+        "http://localhost:4000/api/payments/create-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ amount: amount * bedsCount }), // Total amount
+        }
+      );
+      // --- END OF FIX (Line 1) ---
 
-    const data = await res.json();
-    console.log("📥 Order response:", data);
-    const order = data.data;
-    console.log("📦 Order details:", order);
-
-    // 🌟 Fallback-safe booking logic
-    const completeBooking = async () => {
-      console.log("🔥 Booking data sending...", {
-        hospitalId,
-        bed_id,
-        disease,
-      });
-
-      console.log("📤 Sending bed booking to backend");
-
-      const bookRes = await fetch("http://localhost:4000/api/bookings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          hospitalId,
-          disease,
-          bed_type,
-          bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
-        }),
-      });
-
-      const bookData = await bookRes.json();
-      console.log("📩 Booking response:", bookData);
-
-      if (bookRes.ok) {
-        //alert("🏥 Bed booking request sent!");
-        toast.success("🏥 Bed booking request sent!");
-        setShowBookingForm(false);
-        setSelectedBed(null);
-        setActiveTab("bookBed");
-      } else {
-        toast.error(bookData.message || "❌ Booking failed");
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData.data.id) {
+        throw new Error(orderData.message || "Failed to create payment order");
       }
-    };
 
-    const options = {
-      key: "rzp_test_YFD4eWqY5PM6Ml", // your Razorpay test key
-      amount: order.amount,
-      currency: "INR",
-      name: "Hospman Payment",
-      description: "Booking payment",
-      order_id: order.id,
-      handler: async function (response) {
-        console.log("✅ Razorpay success - proceeding with booking");
-        toast.success("✅ Payment successful!");
-        await completeBooking(); // Still book
-      },
-      modal: {
-        ondismiss: async function () {
-          console.log("⛔ Razorpay closed or failed - proceeding anyway");
-          // alert(
-          //   "⚠️ Payment cancelled or failed. Proceeding with booking anyway."
-          // );
-          toast.error("⚠️ Payment cancelled or failed. Proceeding with booking anyway.");
-          await completeBooking(); // Still book
+      const { id: order_id, amount: orderAmount } = orderData.data;
+      
+      // --- STEP 2: Open the Razorpay Popup ---
+      const options = {
+        key: "rzp_test_YFD4eWqY5PM6Ml", // IMPORTANT: Add your Key ID here
+        amount: orderAmount,
+        currency: "INR",
+        name: "Vitalis Health Management",
+        description: `Booking for ${bed_type} bed at ${selectedBookingInfo?.hospitalName}`,
+        image: "https://placehold.co/100x100/007BFF/FFFFFF?text=V", // Your logo
+        order_id: order_id,
+        
+        // --- STEP 3: The Handler (Payment Success) ---
+        handler: async function (response) {
+          try {
+            // --- STEP 4: Call the BED BOOKING controller ---
+            
+            // --- THIS IS THE FIX (Line 2) ---
+            // I changed the URL to /api/bookings, just like your app.js
+            const bookingRes = await fetch(
+              "http://localhost:4000/api/bookings", // Your bed booking route
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  hospitalId: hospitalId,
+                  bed_type: bed_type,
+                  disease: disease,
+                  bedsCount: bedsCount,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              }
+            );
+            // --- END OF FIX (Line 2) ---
+
+            const bookingData = await bookingRes.json();
+
+            if (!bookingRes.ok) {
+              throw new Error(
+                bookingData.message || "Payment verification failed."
+              );
+            }
+
+            // --- IT WORKED! ---
+            toast.success("Payment successful! Booking request submitted.");
+            await fetchUserBookings(); // Refresh the booking list
+            setShowBookingForm(false); // Hide form
+            setSelectedBookingInfo(null); // Clear info
+            
+          } catch (err) {
+            console.error("Payment verification error:", err);
+            toast.error(`Payment failed: ${err.message}`);
+          } finally {
+            setLoading(false);
+          }
         },
-      },
-      prefill: {
-        name: "Test User",
-        email: "test@example.com",
-      },
-      theme: {
-        color: "#9155FD",
-      },
-      method: {
-        upi: true,
-        card: true,
-      },
-    };
+        prefill: {
+          name: user?.fullName || "User",
+          email: user?.email || "user@example.com",
+          contact: user?.phone || "9999999999",
+        },
+        theme: {
+          color: "#007BFF", // Your theme color
+        },
+        // --- Handle Payment Failure ---
+        modal: {
+          ondismiss: function () {
+            setLoading(false); // Stop loading if user closes popup
+            toast.error("Payment cancelled.");
+          },
+        },
+      };
 
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      
+    } catch (err) {
+      console.error("Payment error:", err);
+      toast.error(`Error: ${err.message}`);
+      setLoading(false);
+    }
   };
+  // const handlePayment = async ({
+  //   amount,
+  //   hospitalId,
+  //   bed_id,
+  //   disease,
+  //   bed_type,
+  //   bedsCount,
+  // }) => {
+  //   console.log("📨 handlePayment called with:", {
+  //     amount,
+  //     hospitalId,
+  //     bed_id,
+  //     disease,
+  //   });
+
+  //   const token = localStorage.getItem("token");
+  //   if (!token) {
+  //     //alert("❌ You must be logged in to proceed");
+  //     toast.error("❌ You must be logged in to proceed");
+  //     return;
+  //   }
+
+  //   // Create order from backend
+  //   const res = await fetch("http://localhost:4000/api/payments/create-order", {
+  //     method: "POST",
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       Authorization: `Bearer ${token}`,
+  //     },
+  //     body: JSON.stringify({
+  //       amount,
+  //       receipt: "booking_" + Date.now(),
+  //     }),
+  //   });
+
+  //   const data = await res.json();
+  //   console.log("📥 Order response:", data);
+  //   const order = data.data;
+  //   console.log("📦 Order details:", order);
+
+  //   // 🌟 Fallback-safe booking logic
+  //   const completeBooking = async () => {
+  //     console.log("🔥 Booking data sending...", {
+  //       hospitalId,
+  //       bed_id,
+  //       disease,
+  //     });
+
+  //     console.log("📤 Sending bed booking to backend");
+
+  //     const bookRes = await fetch("http://localhost:4000/api/bookings", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //       body: JSON.stringify({
+  //         hospitalId,
+  //         disease,
+  //         bed_type,
+  //         bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
+  //       }),
+  //     });
+
+  //     const bookData = await bookRes.json();
+  //     console.log("📩 Booking response:", bookData);
+
+  //     if (bookRes.ok) {
+  //       //alert("🏥 Bed booking request sent!");
+  //       toast.success("🏥 Bed booking request sent!");
+  //       setShowBookingForm(false);
+  //       setSelectedBed(null);
+  //       setActiveTab("bookBed");
+  //     } else {
+  //       toast.error(bookData.message || "❌ Booking failed");
+  //     }
+  //   };
+
+  //   const options = {
+  //     key: "rzp_test_YFD4eWqY5PM6Ml", // your Razorpay test key
+  //     amount: order.amount,
+  //     currency: "INR",
+  //     name: "Hospman Payment",
+  //     description: "Booking payment",
+  //     order_id: order.id,
+  //     handler: async function (response) {
+  //       console.log("✅ Razorpay success - proceeding with booking");
+  //       toast.success("✅ Payment successful!");
+  //       await completeBooking(); // Still book
+  //     },
+  //     modal: {
+  //       ondismiss: async function () {
+  //         console.log("⛔ Razorpay closed or failed - proceeding anyway");
+  //         // alert(
+  //         //   "⚠️ Payment cancelled or failed. Proceeding with booking anyway."
+  //         // );
+  //         toast.error("⚠️ Payment cancelled or failed. Proceeding with booking anyway.");
+  //         await completeBooking(); // Still book
+  //       },
+  //     },
+  //     prefill: {
+  //       name: "Test User",
+  //       email: "test@example.com",
+  //     },
+  //     theme: {
+  //       color: "#9155FD",
+  //     },
+  //     method: {
+  //       upi: true,
+  //       card: true,
+  //     },
+  //   };
+
+  //   const rzp = new window.Razorpay(options);
+  //   rzp.open();
+  // };
 
   useEffect(() => {
     const fetchBeds = async () => {
@@ -369,177 +493,177 @@ const UserDashboard = () => {
 )}
 
 
-        {activeTab === "know" && (
-          <div className="bg-white dark:bg-gray-800 p-6 rounded shadow">
-            <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">
-              Know The Disease
-            </h2>
+      {activeTab === "know" && (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded shadow">
+          <h2 className="text-2xl font-bold text-center text-blue-700 mb-4">
+            Know The Disease
+          </h2>
 
-            {/* Symptom Selection UI */}
-            <div className="flex items-center dark:text-gray-500 gap-3 mb-4">
-              <select
-                className="p-2 border  rounded w-full"
-                value={inputSymptom}
-                onChange={(e) => setInputSymptom(e.target.value)}
-              >
-                <option  value="">-- Select a symptom --</option>
-                {[
-                  "abdominal_pain",
-                  "abnormal_menstruation",
-                  "acidity",
-                  "acute_liver_failure",
-                  "altered_sensorium",
-                  "anxiety",
-                  "back_pain",
-                  "belly_pain",
-                  "blackheads",
-                  "bladder_discomfort",
-                  "blister",
-                  "blood_in_sputum",
-                  "bloody_stool",
-                  "blurred_and_distorted_vision",
-                  "breathlessness",
-                  "brittle_nails",
-                  "bruising",
-                  "burning_micturition",
-                  "chest_pain",
-                  "chills",
-                  "cold_hands_and_feets",
-                  "coma",
-                  "congestion",
-                  "constipation",
-                  "continuous_feel_of_urine",
-                  "continuous_sneezing",
-                  "cough",
-                  "cramps",
-                  "dark_urine",
-                  "dehydration",
-                  "depression",
-                  "diarrhoea",
-                  "dischromic _patches",
-                  "distention_of_abdomen",
-                  "dizziness",
-                  "drying_and_tingling_lips",
-                  "enlarged_thyroid",
-                  "excessive_hunger",
-                  "extra_marital_contacts",
-                  "family_history",
-                  "fast_heart_rate",
-                  "fatigue",
-                  "fluid_overload",
-                  "foul_smell_of urine",
-                  "headache",
-                  "high_fever",
-                  "hip_joint_pain",
-                  "history_of_alcohol_consumption",
-                  "increased_appetite",
-                  "indigestion",
-                  "inflammatory_nails",
-                  "internal_itching",
-                  "irregular_sugar_level",
-                  "irritability",
-                  "irritation_in_anus",
-                  "itching",
-                  "joint_pain",
-                  "knee_pain",
-                  "lack_of_concentration",
-                  "lethargy",
-                  "loss_of_appetite",
-                  "loss_of_balance",
-                  "loss_of_smell",
-                  "malaise",
-                  "mild_fever",
-                  "mood_swings",
-                  "movement_stiffness",
-                  "mucoid_sputum",
-                  "muscle_pain",
-                  "muscle_wasting",
-                  "muscle_weakness",
-                  "nausea",
-                  "neck_pain",
-                  "nodal_skin_eruptions",
-                  "obesity",
-                  "pain_behind_the_eyes",
-                  "pain_during_bowel_movements",
-                  "pain_in_anal_region",
-                  "painful_walking",
-                  "palpitations",
-                  "passage_of_gases",
-                  "patches_in_throat",
-                  "phlegm",
-                  "polyuria",
-                  "prominent_veins_on_calf",
-                  "puffy_face_and_eyes",
-                  "pus_filled_pimples",
-                  "receiving_blood_transfusion",
-                  "receiving_unsterile_injections",
-                  "red_sore_around_nose",
-                  "red_spots_over_body",
-                  "redness_of_eyes",
-                  "restlessness",
-                  "runny_nose",
-                  "rusty_sputum",
-                  "scurring",
-                  "shivering",
-                  "silver_like_dusting",
-                  "sinus_pressure",
-                  "skin_peeling",
-                  "skin_rash",
-                  "slurred_speech",
-                  "small_dents_in_nails",
-                  "spinning_movements",
-                  "spotting_ urination",
-                  "stiff_neck",
-                  "stomach_bleeding",
-                  "stomach_pain",
-                  "sunken_eyes",
-                  "sweating",
-                  "swelled_lymph_nodes",
-                  "swelling_joints",
-                  "swelling_of_stomach",
-                  "swollen_blood_vessels",
-                  "swollen_extremeties",
-                  "swollen_legs",
-                  "throat_irritation",
-                  "toxic_look_(typhos)",
-                  "ulcers_on_tongue",
-                  "unsteadiness",
-                  "visual_disturbances",
-                  "vomiting",
-                  "watering_from_eyes",
-                  "weakness_in_limbs",
-                  "weakness_of_one_body_side",
-                  "weight_gain",
-                  "weight_loss",
-                  "yellow_crust_ooze",
-                  "yellow_urine",
-                  "yellowing_of_eyes",
-                  "yellowish_skin",
-                ].map((symptom) => (
-                  <option key={symptom} value={symptom}>
-                    {symptom}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => {
-                  if (
-                    inputSymptom &&
-                    !selectedSymptoms.includes(inputSymptom)
-                  ) {
-                    setSelectedSymptoms([...selectedSymptoms, inputSymptom]);
-                    setInputSymptom("");
-                  }
-                }}
-                className="bg-blue-600 text-white dark:text-gray-800 px-4 py-2 rounded hover:bg-blue-700 transition cursor-pointer"
-                title="Add symptom"
-              >
-                ➕
-              </button>
-            </div>
+          {/* Symptom Selection UI */}
+          <div className="flex items-center dark:text-gray-500 gap-3 mb-4">
+            <select
+              className="p-2 border rounded w-full"
+              value={inputSymptom}
+              onChange={(e) => setInputSymptom(e.target.value)}
+            >
+              <option value="">-- Select a symptom --</option>
+              {[
+                "abdominal_pain",
+                "abnormal_menstruation",
+                "acidity",
+                "acute_liver_failure",
+                "altered_sensorium",
+                "anxiety",
+                "back_pain",
+                "belly_pain",
+                "blackheads",
+                "bladder_discomfort",
+                "blister",
+                "blood_in_sputum",
+                "bloody_stool",
+                "blurred_and_distorted_vision",
+                "breathlessness",
+                "brittle_nails",
+                "bruising",
+                "burning_micturition",
+                "chest_pain",
+                "chills",
+                "cold_hands_and_feets",
+                "coma",
+                "congestion",
+                "constipation",
+                "continuous_feel_of_urine",
+                "continuous_sneezing",
+                "cough",
+                "cramps",
+                "dark_urine",
+                "dehydration",
+                "depression",
+                "diarrhoea",
+                "dischromic _patches",
+                "distention_of_abdomen",
+                "dizziness",
+                "drying_and_tingling_lips",
+                "enlarged_thyroid",
+                "excessive_hunger",
+                "extra_marital_contacts",
+                "family_history",
+                "fast_heart_rate",
+                "fatigue",
+                "fluid_overload",
+                "foul_smell_of urine",
+                "headache",
+                "high_fever",
+                "hip_joint_pain",
+                "history_of_alcohol_consumption",
+                "increased_appetite",
+                "indigestion",
+                "inflammatory_nails",
+                "internal_itching",
+                "irregular_sugar_level",
+                "irritability",
+                "irritation_in_anus",
+                "itching",
+                "joint_pain",
+                "knee_pain",
+                "lack_of_concentration",
+                "lethargy",
+                "loss_of_appetite",
+                "loss_of_balance",
+                "loss_of_smell",
+                "malaise",
+                "mild_fever",
+                "mood_swings",
+                "movement_stiffness",
+                "mucoid_sputum",
+                "muscle_pain",
+                "muscle_wasting",
+                "muscle_weakness",
+                "nausea",
+                "neck_pain",
+                "nodal_skin_eruptions",
+                "obesity",
+                "pain_behind_the_eyes",
+                "pain_during_bowel_movements",
+                "pain_in_anal_region",
+                "painful_walking",
+                "palpitations",
+                "passage_of_gases",
+                "patches_in_throat",
+                "phlegm",
+                "polyuria",
+                "prominent_veins_on_calf",
+                "puffy_face_and_eyes",
+                "pus_filled_pimples",
+                "receiving_blood_transfusion",
+                "receiving_unsterile_injections",
+                "red_sore_around_nose",
+                "red_spots_over_body",
+                "redness_of_eyes",
+                "restlessness",
+                "runny_nose",
+                "rusty_sputum",
+                "scurring",
+                "shivering",
+                "silver_like_dusting",
+                "sinus_pressure",
+                "skin_peeling",
+                "skin_rash",
+                "slurred_speech",
+                "small_dents_in_nails",
+                "spinning_movements",
+                "spotting_ urination",
+                "stiff_neck",
+                "stomach_bleeding",
+                "stomach_pain",
+                "sunken_eyes",
+                "sweating",
+                "swelled_lymph_nodes",
+                "swelling_joints",
+                "swelling_of_stomach",
+                "swollen_blood_vessels",
+                "swollen_extremeties",
+                "swollen_legs",
+                "throat_irritation",
+                "toxic_look_(typhos)",
+                "ulcers_on_tongue",
+                "unsteadiness",
+                "visual_disturbances",
+                "vomiting",
+                "watering_from_eyes",
+                "weakness_in_limbs",
+                "weakness_of_one_body_side",
+                "weight_gain",
+                "weight_loss",
+                "yellow_crust_ooze",
+                "yellow_urine",
+                "yellowing_of_eyes",
+                "yellowish_skin",
+              ].map((symptom) => (
+                <option key={symptom} value={symptom}>
+                  {symptom}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                if (
+                  inputSymptom &&
+                  !selectedSymptoms.includes(inputSymptom)
+                ) {
+                  setSelectedSymptoms([...selectedSymptoms, inputSymptom]);
+                  setInputSymptom("");
+                }
+              }}
+              className="bg-blue-600 text-white dark:text-gray-800 px-4 py-2 rounded hover:bg-blue-700 transition cursor-pointer"
+              title="Add symptom"
+            >
+              ➕
+            </button>
+          </div>
 
-            {/* Display selected symptoms */}
-            {selectedSymptoms.length > 0 && (
+          {/* Display selected symptoms */}
+          {selectedSymptoms.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {selectedSymptoms.map((symptom, index) => (
                 <span
@@ -547,7 +671,6 @@ const UserDashboard = () => {
                   className="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm"
                 >
                   {symptom}
-                  {/* This is the new 'x' button */}
                   <button
                     onClick={() => handleRemoveSymptom(symptom)}
                     className="ml-2 text-blue-700 hover:text-blue-900 font-bold"
@@ -560,393 +683,356 @@ const UserDashboard = () => {
             </div>
           )}
 
-            {/* Predict button */}
-
-            <button
-              onClick={async () => {
-                if (selectedSymptoms.length < 2) {
-                  toast.error("Please select at least 2 symptoms.");
+          {/* Predict button */}
+          <button
+            onClick={async () => {
+              if (selectedSymptoms.length < 2) {
+                toast.error("Please select at least 2 symptoms.");
+                return;
+              }
+              setLoading(true);
+              try {
+                const res = await fetch("http://localhost:5000/predict", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ symptoms: selectedSymptoms }),
+                });
+                const data = await res.json();
+                setPrediction(data.predicted_disease);
+                navigator.geolocation.getCurrentPosition(
+                  async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setUserLocation({ latitude, longitude });
+                    const token = localStorage.getItem("token");
+                    if (!token) {
+                      console.error("❌ No token found in localStorage!");
+                      return;
+                    }
+                    const res = await fetch(
+                      `http://localhost:4000/api/hospitals/nearby-by-disease?disease=${data.predicted_disease}&userLat=${latitude}&userLng=${longitude}`,
+                      {
+                        method: "GET",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    );
+                    const hospData = await res.json();
+                    setNearbyHospitals(hospData.data || []);
+                  },
+                  (err) => {
+                    console.error("Geolocation error:", err);
+                    toast.error(
+                      "Please allow location access to find nearby hospitals."
+                    );
+                  }
+                );
+                const token = localStorage.getItem("token");
+                if (!token) {
+                  console.warn("⚠️ No token found. Cannot save prediction.");
                   return;
                 }
-
-                setLoading(true); // Start loading
-
-                try {
-                  // Call Python API
-                  const res = await fetch("http://localhost:5000/predict", {
+                const saveRes = await fetch(
+                  "http://localhost:4000/api/symptoms",
+                  {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ symptoms: selectedSymptoms }),
-                  });
-
-                  const data = await res.json();
-                  console.log("🔍 Prediction result:", data);
-                  setPrediction(data.predicted_disease);
-
-                  // Get user location
-
-                  navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                      const { latitude, longitude } = position.coords;
-                      setUserLocation({ latitude, longitude });
-
-                      try {
-                        // Log token for debugging
-                        const token = localStorage.getItem("token");
-                        console.log("🧪 Token used:", token);
-                        if (!token) {
-                          console.error("❌ No token found in localStorage!");
-                          return;
-                        }
-
-                        const res = await fetch(
-                          `http://localhost:4000/api/hospitals/nearby-by-disease?disease=${data.predicted_disease}&userLat=${latitude}&userLng=${longitude}`,
-                          {
-                            method: "GET",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Authorization: `Bearer ${token}`,
-                            },
-                          }
-                        );
-                        const hospData = await res.json();
-                        setNearbyHospitals(hospData.data || []);
-                        console.log("📍 Nearby Hospitals:", hospData.data);
-                      } catch (err) {
-                        console.error("❌ Error fetching hospitals:", err);
-                      }
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
                     },
-                    (err) => {
-                      console.error("Geolocation error:", err);
-                      toast.error(
-                        "Please allow location access to find nearby hospitals."
-                      );
-                    }
+                    body: JSON.stringify({
+                      symptom_list: selectedSymptoms,
+                      predicted_disease: data.predicted_disease,
+                    }),
+                  }
+                );
+                const saveData = await saveRes.json();
+                console.log("✅ Prediction saved:", saveData);
+              } catch (err) {
+                console.error("❌ Error in prediction or saving:", err);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className={`bg-green-600 text-white px-6 py-2 rounded transition ${
+              loading || selectedSymptoms.length < 2
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:bg-green-700"
+            }`}
+            disabled={loading || selectedSymptoms.length < 2}
+          >
+            {loading ? "🔄 Predicting..." : "🔍 Predict Disease"}
+          </button>
+
+          {/* Show prediction result */}
+          {prediction && (
+            <div className="mt-6 text-center">
+              <h3 className="text-lg font-semibold text-blue-700">
+                🩺 Predicted Disease:
+              </h3>
+              <p className="text-xl font-bold mt-2 text-green-500">
+                {prediction}
+              </p>
+            </div>
+          )}
+
+          {/*Show nearby hospitals if prediction is made*/}
+          {nearbyHospitals.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold text-blue-700 mb-2">
+                🏥 Nearby Hospitals:
+              </h3>
+              <ul className="space-y-3">
+                {nearbyHospitals.map((hosp) => (
+                  <li
+                    key={hosp._id}
+                    className="p-4 border rounded shadow-sm bg-gray-50 dark:bg-gray-800"
+                  >
+                    <p className="font-bold text-gray-700 dark:text-gray-300">{hosp.name}</p>
+                    <p className="text-sm dark:text-gray-100 text-gray-600">
+                      {hosp.specialization_offered} • {hosp.distance} km away
+                    </p>
+                    <div className="flex gap-3 mt-2">
+                      
+                      {/* --- THIS IS THE NEW "VIEW ROUTE" BUTTON --- */}
+                      <button
+                        onClick={() => {
+                          // First, get the user's current location
+                          navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                              // Set user coords in state
+                              setUserCoords({
+                                lat: position.coords.latitude,
+                                lng: position.coords.longitude,
+                              });
+                              // NOW, open the map for THIS hospital
+                              setOpenMapId(hosp._id);
+                            },
+                            (err) => {
+                              console.error("Geolocation error:", err);
+                              toast.error(
+                                "Please allow location access to view the route."
+                              );
+                            }
+                          );
+                        }}
+                        className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition text-sm"
+                      >
+                        🗺️ View Route
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setSelectedBookingInfo({
+                            hospitalId: hosp._id,
+                            hospitalName: hosp.name,
+                            disease: prediction,
+                          });
+                          setShowBookingForm(true);
+                          setActiveTab("bookBed");
+                        }}
+                        className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 transition text-sm"
+                      >
+                        🛏️ Book Bed
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedAmbulanceInfo({
+                            hospitalId: hosp._id,
+                            hospitalName: hosp.name,
+                            disease: prediction,
+                          });
+                          setActiveTab("bookAmbulance");
+                        }}
+                        className="px-3 py-1 bg-purple-600 text-white rounded"
+                      >
+                        🚑 Book Ambulance
+                      </button>
+                    </div>
+
+                    {/* --- THIS IS THE NEW MAP BLOCK --- 
+                      It is now INSIDE the list item and will only
+                      show if the ID matches and userCoords exist.
+                    */}
+                    {openMapId === hosp._id && userCoords && (
+                      <div className="mt-4 p-4 border rounded bg-white shadow-lg">
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="text-md font-semibold text-gray-700 dark:text-gray-300">
+                            📍 Route to: {hosp.name}
+                          </h4>
+                          <button
+                            onClick={() => setOpenMapId(null)} // Close this specific map
+                            className="text-red-500 hover:text-red-700 text-sm"
+                          >
+                            ❌ Close Map
+                          </button>
+                        </div>
+                        <ViewRouteMap
+                          userCoords={userCoords}
+                          hospitalCoords={{
+                            lat: hosp.latitude,
+                            lng: hosp.longitude,
+                          }}
+                        />
+                      </div>
+                    )}
+                    {/* --- END OF NEW MAP BLOCK --- */}
+                    
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* --- I HAVE DELETED THE OLD MAP BLOCK FROM HERE ---
+            The map that used to be here is now gone,
+            because it's inside the list.
+          */}
+          
+        </div>
+      )}
+
+        {activeTab === "bookBed" && (
+        <div className="p-6 bg-gray-400 dark:bg-gray-900 rounded shadow">
+          {showBookingForm ? (
+            <>
+              <h2 className="text-xl font-bold mb-4">
+                📝 Book a Bed at {selectedBookingInfo?.hospitalName}
+              </h2>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  
+                  // Find the selected bed details
+                  const bed = availableBeds.find(
+                    (b) => b.bed_type === bedType
                   );
 
-                  // Save to backend
-                  const token = localStorage.getItem("token");
-                  if (!token) {
-                    console.warn("⚠️ No token found. Cannot save prediction.");
+                  if (!bed) {
+                    toast.error("❌ Invalid bed type");
                     return;
                   }
 
-                  const saveRes = await fetch(
-                    "http://localhost:4000/api/symptoms",
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                      },
-                      body: JSON.stringify({
-                        symptom_list: selectedSymptoms,
-                        predicted_disease: data.predicted_disease,
-                      }),
-                    }
-                  );
+                  // Start the payment process
+                  handlePayment({
+                    amount: bed.price_per_day,
+                    hospitalId: selectedBookingInfo.hospitalId,
+                    bed_id: bed._id, // This is the bed ID
+                    disease: selectedBookingInfo.disease,
+                    bed_type: bedType,
+                    bedsCount: parseInt(bedsCount) || 1,
+                  });
+                }}
+                className="space-y-4"
+              >
+                {/* Bed Type */}
+                <select
+                  className="w-full border p-2 dark:border-gray-700 dark:bg-gray-800 rounded"
+                  value={bedType}
+                  onChange={(e) => setBedType(e.target.value)}
+                  required
+                >
+                  <option value="">Select Bed Type</option>
+                  {/* Dynamically show beds that are available */}
+                  {availableBeds.length > 0 ? (
+                    availableBeds.map((bed) => (
+                      <option key={bed._id} value={bed.bed_type}>
+                        {bed.bed_type.charAt(0).toUpperCase() + bed.bed_type.slice(1)} 
+                        (₹{bed.price_per_day}/day) - {bed.availableBeds} available
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>Loading beds...</option>
+                  )}
+                </select>
 
-                  const saveData = await saveRes.json();
-                  console.log("✅ Prediction saved:", saveData);
-                } catch (err) {
-                  console.error("❌ Error in prediction or saving:", err);
-                } finally {
-                  setLoading(false); // End loading
-                }
-              }}
-              className={`bg-green-600 text-white px-6 py-2 rounded transition ${
-                loading || selectedSymptoms.length < 2
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:bg-green-700"
-              }`}
-              disabled={loading || selectedSymptoms.length < 2}
-            >
-              {loading ? "🔄 Predicting..." : "🔍 Predict Disease"}
-            </button>
+                {/* Number of Beds */}
+                <input
+                  type="number"
+                  className="w-full border p-2 rounded"
+                  value={bedsCount}
+                  onChange={(e) => setBedsCount(e.target.value)}
+                  placeholder="Number of Beds"
+                  min={1}
+                  required
+                />
 
-            {/* Show prediction result */}
-            {prediction && (
-              <div className="mt-6 text-center">
-                <h3 className="text-lg font-semibold text-blue-700">
-                  🩺 Predicted Disease:
-                </h3>
-                <p className="text-xl font-bold mt-2 text-green-500">
-                  {prediction}
-                </p>
-              </div>
-            )}
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    className={`bg-green-600 text-white px-4 py-2 rounded transition ${
+                      loading ? "opacity-50 cursor-not-allowed" : "hover:bg-green-700"
+                    }`}
+                    disabled={loading || !bedType}
+                  >
+                    {loading ? "Processing..." : "✅ Proceed to Pay"}
+                  </button>
 
-            {/*Show nearby hospitals if prediction is made*/}
-
-            {nearbyHospitals.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-blue-700 mb-2">
-                  🏥 Nearby Hospitals:
-                </h3>
-                <ul className="space-y-3">
-                  {nearbyHospitals.map((hosp) => (
+                  <button
+                    type="button"
+                    className="bg-gray-400 dark:bg-red-500 text-white px-4 py-2 rounded hover:bg-gray-500 transition"
+                    onClick={() => {
+                      setShowBookingForm(false);
+                      setSelectedBookingInfo(null);
+                    }}
+                    disabled={loading}
+                  >
+                    ❌ Cancel
+                  </button>
+                </div>
+              </form>
+            </>
+          ) : (
+            // --- This is your existing "Past Bed Bookings" list ---
+            // --- I fixed the optional chaining crash here too ---
+            <>
+              <h2 className="text-xl font-bold mb-4 dark:text-green-400 ">
+                📄 Your Past Bed Bookings
+              </h2>
+              {userBookings.length === 0 ? (
+                <p>No past bookings yet.</p>
+              ) : (
+                <ul className="space-y-3 ">
+                  {userBookings.map((booking) => (
                     <li
-                      key={hosp._id}
-                      className="p-4 border rounded shadow-sm bg-gray-50 dark:bg-gray-800"
+                      key={booking._id}
+                      className="border p-3 rounded bg-gray-50 dark:bg-gray-800 shadow-sm"
                     >
-                      <p className="font-bold text-gray-700 dark:text-gray-300">{hosp.name}</p>
-                      <p className="text-sm dark:text-gray-100 text-gray-600">
-                        {hosp.specialization_offered} • {hosp.distance} km away
+                      <p>
+                        <strong>🏥 Hospital:</strong>{" "}
+                        {/* --- FIX --- */}
+                        {booking.hospital?.name || "Deleted Hospital"}
                       </p>
-
-                      <div className="flex gap-3 mt-2">
-                        <button
-                          onClick={() => {
-                            navigator.geolocation.getCurrentPosition(
-                              (position) => {
-                                setUserCoords({
-                                  lat: position.coords.latitude,
-                                  lng: position.coords.longitude,
-                                });
-
-                                setSelectedHospitalForMap({
-                                  hospitalCoords: {
-                                    lat: hosp.latitude,
-                                    lng: hosp.longitude,
-                                  },
-                                  hospitalName: hosp.name,
-                                });
-                              }
-                            );
-                          }}
-                          className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition text-sm"
+                      <p>
+                        <strong>🛏️ Bed:</strong> {booking.bed_type}
+                      </p>
+                      <p>
+                        <strong>🦠 Disease:</strong> {booking.disease}
+                      </p>
+                      <p>
+                        <strong>Status:</strong>
+                        <span
+                          className={`ml-1 font-semibold ${
+                            booking.status === "confirmed"
+                              ? "text-green-600"
+                              : booking.status === "pending"
+                              ? "text-orange-400"
+                              : "text-red-600"
+                          }`}
                         >
-                          🗺️ View Route
-                        </button>
-
-                        {/* ✅ Show map only for the selected hospital */}
-                        {userCoords && selectedHospital?.id === hosp._id && (
-                          <ViewRouteMap
-                            userCoords={userCoords}
-                            hospitalCoords={{
-                              lat: hosp.latitude,
-                              lng: hosp.longitude,
-                            }}
-                          />
-                        )}
-
-                        <button
-                          onClick={() => {
-                            setSelectedBookingInfo({
-                              hospitalId: hosp._id,
-                              hospitalName: hosp.name,
-                              disease: prediction,
-                            });
-                            setShowBookingForm(true);
-                            setActiveTab("bookBed"); // 🔁 redirect to booking form tab
-                          }}
-                          className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700 transition text-sm"
-                        >
-                          🛏️ Book Bed
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setSelectedAmbulanceInfo({
-                              hospitalId: hosp._id,
-                              hospitalName: hosp.name,
-                              disease: prediction,
-                            });
-                            setActiveTab("bookAmbulance"); // 🔁 redirect to booking form tab
-                          }}
-                          className="px-3 py-1 bg-purple-600 text-white rounded"
-                        >
-                          🚑 Book Ambulance
-                        </button>
-                      </div>
+                          {booking.status}
+                        </span>
+                      </p>
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-
-            {/* Close feature for map */}
-            {selectedHospitalForMap && userCoords && (
-              <div className="mt-4 p-4 border rounded bg-white shadow-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-md font-semibold text-gray-700 dark:text-gray-300">
-                    📍 Route to: {selectedHospitalForMap.hospitalName}
-                  </h4>
-                  <button
-                    onClick={() => setSelectedHospitalForMap(null)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    ❌ Close Map
-                  </button>
-                </div>
-
-                <ViewRouteMap
-                  userCoords={userCoords}
-                  hospitalCoords={selectedHospitalForMap.hospitalCoords}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "bookBed" && (
-          <div className="p-6 bg-gray-400 dark:bg-gray-900 rounded shadow">
-            {showBookingForm ? (
-              <>
-                <h2 className="text-xl font-bold mb-4">
-                  📝 Book a Bed at {selectedBookingInfo?.hospitalName}
-                </h2>
-
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    console.log(
-                      "Trying to fetch beds for hospitalId:",
-                      selectedBookingInfo?.hospitalId
-                    );
-
-                    console.log("Selected booking info:", selectedBookingInfo);
-                    console.log("Available beds:", availableBeds);
-                    console.log("Selected bed type:", bedType);
-
-                    const bed = availableBeds.find(
-                      (bed) => bed.bed_type === bedType
-                    );
-
-                    if (!bed) {
-                      toast.error("❌ Invalid bed type");
-                      return;
-                    }
-
-                    setSelectedBed(bed); // optional but useful
-
-                    await handlePayment({
-                      amount: bed.price_per_day,
-                      hospitalId: selectedBookingInfo.hospitalId,
-                      bed_id: bed._id,
-                      disease: selectedBookingInfo.disease,
-                      bed_type: selectedBed.bed_type,
-                      bedsCount: parseInt(bedsCount) || 1,
-                    });
-                    // const token = localStorage.getItem("token");
-
-                    // const res = await fetch("http://localhost:4000/api/bookings", {
-                    //   method: "POST",
-                    //   headers: {
-                    //     "Content-Type": "application/json",
-                    //     Authorization: `Bearer ${token}`,
-                    //   },
-                    //   body: JSON.stringify({
-                    //     hospitalId: selectedBookingInfo.hospitalId,
-                    //     bed_type: bedType,
-                    //     disease: selectedBookingInfo.disease,
-                    //     bedsCount: parseInt(bedsCount) || 1, // Ensure it's a number
-                    //   }),
-                    // });
-
-                    // const data = await res.json();
-                    // if (res.ok) {
-                    //   alert("✅ Booking request submitted");
-                    //   await fetchUserBookings();
-                    //   setShowBookingForm(false); // Hide form
-                    //   setSelectedBookingInfo(null); // Clear info
-                    // } else {
-                    //   alert(data.message || "Booking failed");
-                    // }
-                  }}
-                  className="space-y-4"
-                >
-                  {/* Bed Type */}
-                  <select
-                    className="w-full border p-2 dark:border-gray-700 dark:bg-gray-800 rounded"
-                    value={bedType}
-                    onChange={(e) => setBedType(e.target.value)}
-                    required
-                  >
-                    <option value="">Select Bed Type</option>
-                    <option value="general">General</option>
-                    <option value="icu">ICU</option>
-                    <option value="ventilator">Ventilator</option>
-                    <option value="deluxe">Deluxe</option>
-                  </select>
-
-                  {/* Number of Beds */}
-                  <input
-                    type="number"
-                    className="w-full border p-2 rounded"
-                    value={bedsCount}
-                    onChange={(e) => setBedsCount(e.target.value)}
-                    placeholder="Number of Beds"
-                    min={1}
-                    required
-                  />
-
-                  <div className="flex gap-4">
-                    <button
-                      type="submit"
-                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
-                    >
-                      ✅ Confirm Booking
-                    </button>
-
-                    <button
-                      type="button"
-                      className="bg-gray-400 dark:bg-red-500 text-white px-4 py-2 rounded hover:bg-gray-500 transition"
-                      onClick={() => {
-                        setShowBookingForm(false);
-                        setSelectedBookingInfo(null);
-                      }}
-                    >
-                      ❌ Cancel
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <>
-                <h2 className="text-xl font-bold mb-4 dark:text-green-400 ">
-                  📄 Your Past Bed Bookings
-                </h2>
-                {userBookings.length === 0 ? (
-                  <p>No past bookings yet.</p>
-                ) : (
-                  <ul className="space-y-3 ">
-                    {userBookings.map((booking) => (
-                      <li
-                        key={booking._id}
-                        className="border p-3 rounded bg-gray-50 dark:bg-gray-800 shadow-sm"
-                      >
-                        <p>
-                          <strong>🏥 Hospital:</strong> {booking.hospital.name}
-                        </p>
-                        <p>
-                          <strong>🛏️ Bed:</strong> {booking.bed_type}
-                        </p>
-                        <p>
-                          <strong>🦠 Disease:</strong> {booking.disease}
-                        </p>
-                        <p>
-                          <strong>Status:</strong>
-                          <span
-                            className={`ml-1 font-semibold ${
-                              booking.status === "confirmed"
-                                ? "text-green-600"
-                                : booking.status === "pending"
-                                ? "text-orange-400"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {booking.status}
-                          </span>
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-          </div>
-        )}
+              )}
+            </>
+          )}
+        </div>
+      )}
 
         {activeTab === "bookAmbulance" && (
           <div className="p-4">

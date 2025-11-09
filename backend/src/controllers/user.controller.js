@@ -5,10 +5,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import fs from "fs";
 import jwt from "jsonwebtoken";
-import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
+import { sendWelcomeEmail, sendVerificationEmail } from "../utils/email.js";
 
 // REGISTER USER (Manual)
-  export const registerUser = asyncHandler(async (req, res) => {
+export const registerUser = asyncHandler(async (req, res) => {
   const { fullName, username, email, password, phone, role } = req.body;
   const avatarLocalPath = req.file?.path;
 
@@ -44,16 +44,18 @@ import { sendWelcomeEmail,sendVerificationEmail } from "../utils/email.js";
   // 🥳 Send Welcome Email
   await sendWelcomeEmail(user.email, user.fullName);
 
+  // --- THIS IS THE FIX ---
+  // We now use an environment variable instead of a hard-coded IP
+  const backendUrl = process.env.BACKEND_URL || "http://localhost:4000";
+  const verificationLink = `${backendUrl}/api/v1/users/verify/${emailToken}`;
+  // --- END OF FIX ---
+
   // Send verification email
-  //await sendVerificationEmail(user.email, emailToken);
-// Construct full verification link using your IP
-const verificationLink = `http://192.168.0.108:4000/api/v1/users/verify/${emailToken}`;
+  await sendVerificationEmail(user.email, verificationLink);
 
-// Send verification email
-await sendVerificationEmail(user.email, verificationLink);
-
-
-  const createdUser = await User.findById(user._id).select("-password -refreshToken");
+  const createdUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
 
   const accessToken = user.generateAccessToken();
   const refreshToken = user.generateRefreshToken();
@@ -86,109 +88,40 @@ await sendVerificationEmail(user.email, verificationLink);
 });
 
 // Verify Email
- 
-// export const verifyEmail = asyncHandler(async (req, res) => {
-//   const { token } = req.params;
-
-//   if (!token) {
-//     throw new ApiError(400, "Verification token is required");
-//   }
-
-//   try {
-//     const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET);
-//     const user = await User.findById(decoded._id);
-
-//     if (!user) {
-//       throw new ApiError(404, "User not found");
-//     }
-
-//     if (user.isVerified) {
-//       return res.send(`<h2 style="text-align:center;color:green;">Email already verified ✅</h2>`);
-//     }
-
-//     user.isVerified = true;
-//     await user.save();
-
-//     res.send(`<h2 style="text-align:center;color:green;">Email verified successfully ✅</h2>`);
-//   } catch (error) {
-//     throw new ApiError(400, "Invalid or expired token");
-//   }
-// });
-
 export const verifyEmail = asyncHandler(async (req, res) => {
   const { token } = req.params;
+  
+  // --- THIS IS THE BETTER FIX (FOR THE FRONTEND) ---
+  // We need to know where your frontend login page is
+  const frontendLoginUrl = process.env.CLIENT_URL_LOGIN || "http://localhost:5173/login"; // Use your frontend's login URL
 
   try {
-    //console.log("Received Token:", token); // 🧪 For debugging
-
     const decoded = jwt.verify(token, process.env.EMAIL_VERIFICATION_SECRET);
-    //console.log("Decoded ID:", decoded._id); // 🧪 For debugging
-
     const user = await User.findById(decoded._id);
+
     if (!user) {
       throw new ApiError(400, "User not found");
     }
 
     if (user.isVerified) {
-      return res.status(200).json({ message: "Email already verified" });
+      // User is already verified, just redirect them
+      return res.redirect(frontendLoginUrl + "?message=Email+already+verified");
     }
 
     user.isVerified = true;
     await user.save();
 
-    res.status(200).json({ message: "Email verified successfully" });
+    // SUCCESS! Redirect them to the login page with a success message
+    return res.redirect(frontendLoginUrl + "?message=Email+verified+successfully!+Please+login.");
+    
   } catch (err) {
-    //console.error("Verification Error:", err.message); // 🧪
-    throw new ApiError(400, "Invalid or expired token");
+    // FAILED! Redirect them to the login page with an error
+    return res.redirect(frontendLoginUrl + "?error=Invalid+or+expired+token");
   }
 });
 
 
 // LOGIN USER (Manual)
-// export const loginUser = asyncHandler(async (req, res) => {
-//   const { email, password } = req.body;
-
-//   if (!email || !password) {
-//     throw new ApiError(400, "Email and password are required");
-//   }
-
-//   const user = await User.findOne({ email });
-
-//   if (!user) {
-//     throw new ApiError(404, "User not found");
-//   }
-
-//   const isPasswordValid = await user.isPasswordCorrect(password);
-
-//   if (!isPasswordValid) {
-//     throw new ApiError(401, "Invalid email or password");
-//   }
-
-//   const accessToken = user.generateAccessToken();
-//   const refreshToken = user.generateRefreshToken();
-
-//   user.refreshToken = refreshToken;
-//   await user.save({ validateBeforeSave: false });
-
-//   const userData = await User.findById(user._id).select("-password -refreshToken");
-
-//   res
-//     .status(200)
-//     .cookie("accessToken", accessToken, {
-//       httpOnly: true,
-//       secure: true,
-//       sameSite: "None",
-//     })
-//     .cookie("refreshToken", refreshToken, {
-//       httpOnly: true,
-//       secure: true,
-//       sameSite: "None",
-//     })
-//     .json(
-//       new ApiResponse(200, { user: userData, accessToken }, "Login successful")
-//     );
-// });
-
 export const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
@@ -208,9 +141,10 @@ export const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid email or password");
   }
 
-  // 🛑 Check if email is verified
   if (!user.isVerified) {
-    return res.status(403).json(new ApiResponse(403, null, "Email not verified"));
+    return res
+      .status(403)
+      .json(new ApiResponse(403, null, "Email not verified"));
   }
 
   const accessToken = user.generateAccessToken();
@@ -219,7 +153,9 @@ export const loginUser = asyncHandler(async (req, res) => {
   user.refreshToken = refreshToken;
   await user.save({ validateBeforeSave: false });
 
-  const userData = await User.findById(user._id).select("-password -refreshToken");
+  const userData = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
 
   res
     .status(200)
@@ -234,7 +170,11 @@ export const loginUser = asyncHandler(async (req, res) => {
       sameSite: "None",
     })
     .json(
-      new ApiResponse(200, { user: userData, token: accessToken }, "Login successful")
+      new ApiResponse(
+        200,
+        { user: userData, token: accessToken },
+        "Login successful"
+      )
     );
 });
 
@@ -247,30 +187,25 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, { user }));
 });
 
-
-
 // LOGOUT USER
-
 export const logoutUser = async (req, res, next) => {
   try {
-    const refreshToken = req.cookies?.refreshToken || req.header("x-refresh-token");
+    const refreshToken =
+      req.cookies?.refreshToken || req.header("x-refresh-token");
 
     if (!refreshToken) {
       throw new ApiError(401, "Refresh token missing");
     }
 
-    // Find user with this refresh token
     const user = await User.findOne({ refreshToken });
 
     if (!user) {
       throw new ApiError(401, "Invalid refresh token");
     }
 
-    // Remove refresh token from DB
     user.refreshToken = null;
     await user.save();
 
-    // Clear cookie on client
     res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" });
 
     res.status(200).json(new ApiResponse(200, null, "Logged out successfully"));
@@ -282,33 +217,29 @@ export const logoutUser = async (req, res, next) => {
 // refresh access token
 export const refreshAccessToken = async (req, res, next) => {
   try {
-    const refreshToken = req.cookies?.refreshToken || req.header("x-refresh-token");
+    const refreshToken =
+      req.cookies?.refreshToken || req.header("x-refresh-token");
 
     if (!refreshToken) {
       throw new ApiError(401, "Refresh token missing");
     }
 
-    // Verify refresh token validity
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
-
-    // Find user
     const user = await User.findById(decoded._id);
 
     if (!user || user.refreshToken !== refreshToken) {
       throw new ApiError(401, "Invalid refresh token");
     }
 
-    // Generate new access token
     const accessToken = user.generateAccessToken();
 
-    res.status(200).json(new ApiResponse(200, { accessToken }, "Access token refreshed"));
+    res
+      .status(200)
+      .json(new ApiResponse(200, { accessToken }, "Access token refreshed"));
   } catch (error) {
     next(error);
   }
 };
-
-
- 
 
 // ADMIN CONTROLLERS
 // ADMIN: Get all users (role: "User")
@@ -324,7 +255,7 @@ export const getAllUsers = asyncHandler(async (req, res) => {
 
 // ADMIN: Get all operators (role: "Operator")
 export const getAllOperators = asyncHandler(async (req, res) => {
-  const operators = await User.find({ role: "Operator" }).select(
+  const operators = await User.find({ role: /operator/i }).select(
     "-password -refreshToken -__v"
   );
 
@@ -339,7 +270,7 @@ export const getUserDetails = asyncHandler(async (req, res) => {
   const user = await User.findById(id).select("-password -refreshToken -__v");
 
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError( "User not found");
   }
 
   return res
@@ -350,7 +281,6 @@ export const getUserDetails = asyncHandler(async (req, res) => {
 // ADMIN: Update a user's details by ID
 export const updateUserDetails = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  // We only allow updating these fields
   const { fullName, username, email, phone } = req.body;
 
   const user = await User.findByIdAndUpdate(
@@ -363,7 +293,7 @@ export const updateUserDetails = asyncHandler(async (req, res) => {
         phone,
       },
     },
-    { new: true } // This returns the updated document
+    { new: true }
   ).select("-password -refreshToken -__v");
 
   if (!user) {
@@ -379,7 +309,6 @@ export const updateUserDetails = asyncHandler(async (req, res) => {
 export const deleteUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  // Prevent an admin from deleting themselves
   if (req.user._id.toString() === id) {
     throw new ApiError(400, "Admin cannot delete themselves");
   }

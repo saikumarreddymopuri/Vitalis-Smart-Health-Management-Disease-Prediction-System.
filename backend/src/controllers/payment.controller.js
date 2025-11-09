@@ -10,18 +10,34 @@ const razorpayInstance = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+// ---------------------------------------------------------------
 // 🟢 Create Razorpay order
+// ---------------------------------------------------------------
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
-  const { amount, receipt } = req.body;
+  const { amount } = req.body; // Only need amount
 
-  if (!amount) throw new ApiError(400, "Amount is required");
+  if (!amount || amount <= 0) {
+    throw new ApiError(400, "Valid amount is required");
+  }
 
-  const options = {
-    amount: amount * 100, // in paisa
-    currency: "INR",
-    receipt: receipt || `receipt_order_${Date.now()}`,
-  };
+  try {
+    const options = {
+      amount: Math.round(amount * 100), // in paisa, ensure it's an integer
+      currency: "INR",
+      receipt: `receipt_order_${Date.now()}`,
+    };
 
-  const order = await razorpayInstance.orders.create(options);
-  return res.status(201).json(new ApiResponse(201, order, "✅ Razorpay order created"));
+    const order = await razorpayInstance.orders.create(options);
+
+    if (!order) {
+      throw new ApiError(500, "Razorpay order creation failed");
+    }
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, order, "✅ Razorpay order created"));
+  } catch (error) {
+    console.error("RAZORPAY ERROR:", error);
+    throw new ApiError(500, error.message || "Error creating Razorpay order");
+  }
 });

@@ -6,49 +6,152 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { notifyUser } from "../utils/notify.js";
 import {User} from "../models/user.model.js";
+import crypto from "crypto"; // --- IMPORT CRYPTO ---
+import Razorpay from "razorpay";
 
 // 🟢 User books bed
-export const bookBed = asyncHandler(async (req, res) => {
-  const { hospitalId, bed_type, disease, bedsCount } = req.body;
+// export const bookBed = asyncHandler(async (req, res) => {
+//   const { hospitalId, bed_type, disease, bedsCount } = req.body;
 
-  if (!hospitalId || !bed_type || !disease || !bedsCount) {
-    throw new ApiError(400, "hospitalId, bed_type, disease, and bedsCount are required");
+//   if (!hospitalId || !bed_type || !disease || !bedsCount) {
+//     throw new ApiError(400, "hospitalId, bed_type, disease, and bedsCount are required");
+//   }
+
+//   const bedAvailable = await Bed.findOne({
+//     hospital: hospitalId,
+//     bed_type,
+//     availableBeds: { $gte: bedsCount }
+    
+//   });
+
+//   if (!bedAvailable) {
+//     throw new ApiError(404, "No available beds for selected type");
+//   }
+
+//   const booking = await Booking.create({
+//     user: req.user._id,
+//     hospital: hospitalId,
+//     bed_type,
+//     disease,
+//     bedsCount,
+//   });
+//   const operators = await User.find({ role: "Operator" }); // get all operators
+// for (const op of operators) {
+//   console.log("Notifying operator:", op._id);
+//   console.log("name:", op.fullName);
+//   await notifyUser(
+//     op._id,
+
+//     "Operator",
+//     "🛏️ New Bed Booking Request",
+//     `A user requested a ${bed_type} bed for ${disease}`
+//   );
+// }
+
+
+//   res.status(201).json(new ApiResponse(201, booking, "Bed booking request created"));
+// });
+
+// --- Initialize Razorpay (Do this ONCE at the top) ---
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// ---------------------------------------------------------------
+// 🟢 User books bed (NOW VERIFIES PAYMENT FIRST)
+// ---------------------------------------------------------------
+export const bookBed = asyncHandler(async (req, res) => {
+  // --- 1. Get ALL data from the request body ---
+  const {
+    hospitalId,
+    bed_type,
+    disease,
+    bedsCount,
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+  } = req.body;
+
+  if (
+    !hospitalId ||
+    !bed_type ||
+    !disease ||
+    !bedsCount ||
+    !razorpay_order_id ||
+    !razorpay_payment_id ||
+    !razorpay_signature
+  ) {
+    throw new ApiError(400, "All booking and payment fields are required");
   }
 
+  // --- 2. VERIFY PAYMENT SIGNATURE ---
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(body.toString())
+    .digest("hex");
+
+  const isPaymentAuthentic = expectedSignature === razorpay_signature;
+
+  if (!isPaymentAuthentic) {
+    // Payment is fake or failed! DO NOT BOOK.
+    throw new ApiError(400, "Invalid payment signature. Booking failed.");
+  }
+
+  // --- 3. PAYMENT IS VERIFIED! Now, check for beds ---
   const bedAvailable = await Bed.findOne({
     hospital: hospitalId,
     bed_type,
-    availableBeds: { $gte: bedsCount }
-    
+    availableBeds: { $gte: bedsCount },
   });
 
   if (!bedAvailable) {
     throw new ApiError(404, "No available beds for selected type");
   }
 
-  const booking = await Booking.create({
+  // --- 4. Create the booking ---
+  const booking = await Booking.create({ // Use BedBooking model
     user: req.user._id,
     hospital: hospitalId,
     bed_type,
     disease,
     bedsCount,
+    paymentId: razorpay_payment_id, // Save payment ID
+    orderId: razorpay_order_id,     // Save order ID
+    paymentStatus: "success",       // Set payment status
+    status: "pending",              // Set booking status to "pending" for operator
   });
-  const operators = await User.find({ role: "Operator" }); // get all operators
-for (const op of operators) {
-  console.log("Notifying operator:", op._id);
-  console.log("name:", op.fullName);
-  await notifyUser(
-    op._id,
 
-    "Operator",
-    "🛏️ New Bed Booking Request",
-    `A user requested a ${bed_type} bed for ${disease}`
-  );
-}
+  // --- 5. NOTIFY THE OPERATOR (This is the correct time) ---
+  const operators = await User.find({ role: /operator/i }); // Case-insensitive
+  if (operators.length > 0) {
+    for (const op of operators) {
+      console.log("Notifying operator:", op._id, op.fullName);
+      await notifyUser(
+        op._id,
+        "Operator",
+        "🛏️ New Bed Booking Request",
+        `A user requested a ${bed_type} bed for ${disease}`
+      );
+    }
+  } else {
+    console.warn("⚠️ No operators found to notify.");
+  }
 
-
-  res.status(201).json(new ApiResponse(201, booking, "Bed booking request created"));
+  // --- 6. Send success response ---
+  res
+    .status(201)
+    .json(
+      new ApiResponse(
+        201,
+        booking,
+        "Payment successful and booking request created"
+      )
+    );
 });
+
+
 
 // 🟢 Operator fetches bookings for their hospitals
 export const getOperatorBookings = asyncHandler(async (req, res) => {

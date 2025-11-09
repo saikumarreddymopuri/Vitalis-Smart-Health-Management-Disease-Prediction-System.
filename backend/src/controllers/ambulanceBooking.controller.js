@@ -34,7 +34,7 @@ export const bookAmbulance = asyncHandler(async (req, res) => {
   });
 
   // 🔔 Notify all operators about this booking
-  const operators = await User.find({ role: "operator" }); // ✅ Fix: use User
+  const operators = await User.find({ role: /operator/i }); //  case insensitive
   if (operators.length > 0) {
     for (const op of operators) {
       await notifyUser(
