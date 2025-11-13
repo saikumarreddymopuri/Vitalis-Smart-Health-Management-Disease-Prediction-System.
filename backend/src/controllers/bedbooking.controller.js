@@ -228,3 +228,113 @@ export const cancelBooking = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, booking, "Booking cancelled"));
 });
+
+
+// 🟢 User deletes a single booking
+export const deleteBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const booking = await Booking.findOneAndDelete({
+    _id: id,
+    user: req.user._id, // Ensure only the user who made the booking can delete it
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Booking not found or you do not have permission");
+  }
+
+  // --- This is an important step ---
+  // If the booking was "confirmed", we must add the bed back to the hospital
+  if (booking.status === "confirmed") {
+    await Bed.updateOne(
+      {
+        hospital: booking.hospital,
+        bed_type: booking.bed_type,
+      },
+      { $inc: { availableBeds: 1 } } // Increment availableBeds by 1
+    );
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { _id: id }, "Booking deleted successfully"));
+});
+
+// 🟢 User deletes ALL their bookings
+export const deleteAllUserBookings = asyncHandler(async (req, res) => {
+  
+  // Find all confirmed bookings for this user first
+  const confirmedBookings = await Booking.find({
+    user: req.user._id,
+    status: "confirmed",
+  });
+
+  // --- This is complex, but important for data integrity ---
+  // We need to add all the beds back to their respective hospitals
+  if (confirmedBookings.length > 0) {
+    const bulkOps = [];
+    // Group beds by hospital and type to update counts efficiently
+    const bedUpdates = {};
+
+    for (const booking of confirmedBookings) {
+      const key = `${booking.hospital}_${booking.bed_type}`;
+      if (!bedUpdates[key]) {
+        bedUpdates[key] = {
+          hospital: booking.hospital,
+          bed_type: booking.bed_type,
+          count: 0,
+        };
+      }
+      bedUpdates[key].count += 1;
+    }
+
+    // Create the bulk update operations
+    for (const key in bedUpdates) {
+      const update = bedUpdates[key];
+      bulkOps.push({
+        updateOne: {
+          filter: { hospital: update.hospital, bed_type: update.bed_type },
+          update: { $inc: { availableBeds: update.count } },
+        },
+      });
+    }
+    
+    if (bulkOps.length > 0) {
+      await Bed.bulkWrite(bulkOps);
+    }
+  }
+
+  // Now, delete all bookings for the user (confirmed, pending, rejected, etc.)
+  await Booking.deleteMany({
+    user: req.user._id,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "All bed booking history cleared"));
+});
+
+
+// 🟢 Operator fetches COMPLETED bookings for their hospitals
+export const getOperatorBedHistory = asyncHandler(async (req, res) => {
+  // 1. Find all hospitals managed by this operator
+  const hospitals = await Hospital.find({ createdBy: req.user._id }).select(
+    "_id"
+  );
+  const hospitalIds = hospitals.map((h) => h._id);
+
+  // 2. Find all bookings for these hospitals that are NOT pending
+  const bookings = await Booking.find({
+    hospital: { $in: hospitalIds },
+    status: { $in: ["confirmed", "rejected", "cancelled"] }, // Get all except "pending"
+  })
+    .populate("user", "fullName email")
+    .populate("hospital", "name")
+    .sort({ updatedAt: -1 }); // Sort by most recently updated
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, bookings, "Operator booking history fetched")
+    );
+});

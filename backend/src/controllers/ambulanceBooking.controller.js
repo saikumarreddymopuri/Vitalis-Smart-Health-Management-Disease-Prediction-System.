@@ -120,3 +120,99 @@ export const getUserAmbulanceBookings = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, bookings, "✅ Your ambulance bookings"));
 });
+
+
+ 
+
+// 🟢 User deletes a single ambulance booking
+export const deleteAmbulanceBooking = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const booking = await AmbulanceBooking.findOneAndDelete({
+    _id: id,
+    user: req.user._id, // Ensure only the user who made it can delete
+  });
+
+  if (!booking) {
+    throw new ApiError(404, "Ambulance booking not found or permission denied");
+  }
+
+  // --- Important Step ---
+  // If the booking was "confirmed", we must make the ambulance available again
+  if (booking.status === "confirmed") {
+    await Ambulance.updateOne(
+      { _id: booking.ambulance },
+      { $set: { is_available: true } }
+    );
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { _id: id }, "Ambulance booking deleted successfully")
+    );
+});
+
+// 🟢 User deletes ALL their ambulance bookings
+export const deleteAllUserAmbulanceBookings = asyncHandler(async (req, res) => {
+  
+  // Find all confirmed bookings for this user
+  const confirmedBookings = await AmbulanceBooking.find({
+    user: req.user._id,
+    status: "confirmed",
+  });
+
+  // --- Important Step ---
+  // Make all those ambulances available again
+  if (confirmedBookings.length > 0) {
+    const ambulanceIdsToUpdate = confirmedBookings.map(
+      (booking) => booking.ambulance
+    );
+    
+    await Ambulance.updateMany(
+      { _id: { $in: ambulanceIdsToUpdate } },
+      { $set: { is_available: true } }
+    );
+  }
+
+  // Now, delete all of the user's ambulance bookings
+  await AmbulanceBooking.deleteMany({
+    user: req.user._id,
+  });
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, {}, "All ambulance booking history cleared")
+    );
+});
+
+
+// 🟢 Operator fetches COMPLETED ambulance bookings for their hospitals
+export const getOperatorAmbulanceHistory = asyncHandler(async (req, res) => {
+  // 1. Find all hospitals managed by this operator
+  const hospitals = await Hospital.find({ createdBy: req.user._id }).select(
+    "_id"
+  );
+  const hospitalIds = hospitals.map((h) => h._id);
+
+  // 2. Find all bookings for these hospitals that are NOT pending
+  const bookings = await AmbulanceBooking.find({
+    hospital: { $in: hospitalIds },
+    status: { $in: ["confirmed", "rejected", "cancelled"] }, // Get all except "pending"
+  })
+    .populate("user", "fullName email")
+    .populate("hospital", "name")
+    .populate("ambulance", "vehicle_number ambulance_type")
+    .sort({ updatedAt: -1 }); // Sort by most recently updated
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        bookings,
+        "Operator ambulance booking history fetched"
+      )
+    );
+});

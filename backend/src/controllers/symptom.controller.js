@@ -34,3 +34,33 @@ export const getPredictionsByUser = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, predictions, "✅ Past predictions loaded"));
 });
+
+
+// @desc Delete a specific prediction by ID for the logged-in user
+export const deletePrediction = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const prediction = await Symptom.findOneAndDelete({
+    _id: id,
+    user: req.user._id, // Ensure only the user who made it can delete
+  });
+
+  if (!prediction) {
+    throw new ApiError(404, "Prediction not found or permission denied");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { _id: id }, "Prediction deleted successfully"));
+});
+
+// @desc Delete all predictions for the logged-in user
+export const deleteAllUserPredictions = asyncHandler(async (req, res) => {
+  await Symptom.deleteMany({
+    user: req.user._id,
+  });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "All prediction history cleared"));
+});

@@ -175,3 +175,20 @@ export const getHospitalsByOperator = asyncHandler(async (req, res) => {
 
   res.status(200).json(new ApiResponse(200, hospitals));
 });
+
+
+export const getApprovedHospitalHistory = asyncHandler(async (req, res) => {
+  const hospitals = await Hospital.find({ is_verified: true })
+    .populate("createdBy", "fullName email avatar") // --- This gets the operator details ---
+    .sort({ updatedAt: -1 }); // Show most recently approved first
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        hospitals,
+        "Approved hospital history fetched successfully"
+      )
+    );
+});

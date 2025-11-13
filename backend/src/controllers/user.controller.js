@@ -323,3 +323,37 @@ export const deleteUser = asyncHandler(async (req, res) => {
     .status(200)
     .json(new ApiResponse(200, {}, "User deleted successfully"));
 });
+
+
+// UPDATE CURRENT USER PROFILE
+export const updateCurrentUser = asyncHandler(async (req, res) => {
+  // We only allow updating these two fields for security
+  const { fullName, phone } = req.body;
+
+  if (!fullName || !phone) {
+    throw new ApiError(400, "Full name and phone number are required");
+  }
+
+  // Find the user by their ID (from the JWT token) and update them
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id, // This comes from verifyJWT, it's secure
+    {
+      $set: {
+        fullName: fullName,
+        phone: phone,
+      },
+    },
+    { new: true } // This returns the new, updated document
+  ).select("-password -refreshToken -__v"); // Don't send back sensitive data
+
+  if (!updatedUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  // Send back the updated user
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, updatedUser, "Profile updated successfully")
+    );
+});
