@@ -7,14 +7,7 @@
     "start": "node src/server.js"
   },
   "engines": {
-    "node": "18.x"
-  },
-  "author": "saikumar reddy",
-  "license": "ISC",
-  "description": "",
-  "devDependencies": {
-    "nodemon": "^3.1.10",
-    "prettier": "^3.5.3"
+    "node": "22.x"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -31,8 +24,12 @@
     "nodemailer": "^7.0.3",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
-    "razorpay": "^2.9.6",
+    "razorpay": "^2.9.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "prettier": "^3.5.3",
     "socket.io": "^4.8.1"
+    
   }
 }
-
