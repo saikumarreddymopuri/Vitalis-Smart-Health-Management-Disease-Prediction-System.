@@ -1,4 +1,3 @@
-// controllers/symptom.controller.js
 import Symptom from "../models/symptom.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -35,7 +34,6 @@ export const getPredictionsByUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, predictions, "✅ Past predictions loaded"));
 });
 
-
 // @desc Delete a specific prediction by ID for the logged-in user
 export const deletePrediction = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -63,4 +61,47 @@ export const deleteAllUserPredictions = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "All prediction history cleared"));
+});
+
+// --- THIS IS THE NEW FUNCTION ---
+// @desc    Get prediction from ML API
+// @route   POST /api/symptoms/predict
+// @access  User only
+export const getPrediction = asyncHandler(async (req, res) => {
+  const { symptoms } = req.body;
+
+  if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
+    throw new ApiError(400, "Symptoms array is required");
+  }
+
+  // We call your new LIVE ML API from the backend
+  // We will get this URL from your .env variables
+  const mlApiUrl = process.env.ML_API_URL;
+
+  if (!mlApiUrl) {
+    throw new ApiError(500, "ML API URL is not configured on the server");
+  }
+
+  try {
+    // We are calling your new Render URL: https://vitalis-ml-api.onrender.com/predict
+    const response = await fetch(`${mlApiUrl}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symptoms: symptoms }),
+    });
+
+    if (!response.ok) {
+      throw new ApiError(500, "Failed to get prediction from ML service");
+    }
+
+    const data = await response.json();
+
+    // Send the AI's prediction back to the frontend
+    return res
+      .status(200)
+      .json(new ApiResponse(200, data, "Prediction successful"));
+  } catch (error) {
+    console.error("ML API call error:", error);
+    throw new ApiError(500, "Error communicating with prediction service");
+  }
 });
