@@ -2,6 +2,11 @@ import React, { useState, useEffect } from "react";
 import Header from "../components/Layout/Header.jsx";
 import Sidebar from "../components/Layout/Sidebar.jsx";
 import Footer from "../components/Layout/Footer.jsx";
+// import RoleDoughnutChart from "../components/Admin/Charts/RoleDoughnutChart.jsx";
+import DiseaseBarChart from "../components/Admin/Charts/DiseaseBarChart.jsx";
+import HospitalLineChart from "../components/Admin/Charts/HospitalLineChart.jsx";
+import BedAvailability from "../components/Admin/Charts/BedAvailability.jsx";
+import AmbulanceAvailability from "../components/Admin/Charts/AmbulanceAvailability.jsx";
 // --- NEW IMPORT ---
 import UserManagementPanel from "../components/Admin/UserManagementPanel.jsx";
 import { useContext } from "react";
@@ -27,8 +32,14 @@ import {
   HiOutlineXCircle,
   HiOutlineArchive,
   HiOutlineUserCircle,
+  HiOutlineCollection,
+  HiOutlineExclamationCircle,
+  HiOutlineLightningBolt,
+  HiOutlineChartPie,
+  HiOutlineUserGroup,
 } from "react-icons/hi";
 import { HiOutlineShieldCheck } from "react-icons/hi";
+import { FaBed, FaAmbulance } from "react-icons/fa";
 import ReactDOM from "react-dom";
 
 const AdminDashboard = () => {
@@ -191,6 +202,66 @@ useEffect(() => {
 
   fetchHospitalHistory();
 }, [activeTab, token]);
+
+
+
+// analytics data
+
+  const [statsData, setStatsData] = useState(null);
+  const [feedData, setFeedData] = useState([]);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+
+  useEffect(() => {
+  const fetchAnalytics = async () => {
+    // Only run this if the analytics tab is open
+    if (activeTab === "analytics") {
+      setAnalyticsLoading(true);
+      try {
+        // Fetch main stats and feed in parallel
+        const [statsRes, feedRes] = await Promise.all([
+          fetch("http://localhost:4000/api/v1/analytics/main", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("http://localhost:4000/api/v1/analytics/feed", {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const stats = await statsRes.json();
+        const feed = await feedRes.json();
+
+        // --- THIS IS THE FIX ---
+        // We check for 'stats.data' instead of 'stats.success'
+        if (stats.data) {
+          setStatsData(stats.data);
+        } else {
+          toast.error("Failed to load analytics stats");
+        }
+
+        // We check for 'feed.data' instead of 'feed.success'
+        if (feed.data) {
+          setFeedData(feed.data || []);
+        } else {
+          toast.error("Failed to load live feed");
+        }
+        // --- END OF FIX ---
+
+      } catch (err) {
+        console.error(err);
+        toast.error("Analytics data failed to load.");
+      } finally {
+        // No matter what, stop loading
+        setAnalyticsLoading(false);
+      }
+    }
+  };
+
+  fetchAnalytics();
+}, [activeTab, token]);
+
+
+
+
 
 
   return (
@@ -468,15 +539,160 @@ useEffect(() => {
             key="operators"
           />
         )}
-        {/* --- END NEW SECTIONS --- */}
 
-        {/* --- OLD "users" tab is removed, but we keep analytics --- */}
+         
         {activeTab === "analytics" && (
-          <div className="bg-gray-200 dark:bg-gray-800 p-6 rounded shadow text-center">
-            <h2 className="text-xl font-bold">System Analytics</h2>
-            <p>📊 Reports and analytics coming soon...</p>
+  // --- Main container (h-full and flex-col for scrolling) ---
+  <div className="bg-gray-900/60 backdrop-blur-lg p-6 sm:p-8 rounded-2xl shadow-2xl border border-blue-500/30 h-full flex flex-col">
+    
+    {/* --- Main Title (flex-shrink-0) --- */}
+    <div className="flex items-center justify-center gap-3 mb-8 flex-shrink-0">
+      <HiOutlineChartPie className="w-8 h-8 text-cyan-400" />
+      <h2 className="text-4xl font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400">
+        VITALIS Command Center
+      </h2>
+    </div>
+
+    {analyticsLoading ? (
+      <div className="text-center text-cyan-400 py-20">Loading Analytics...</div>
+    ) : !statsData ? (
+      <div className="text-center text-red-400 py-20">Failed to load data.</div>
+    ) : (
+      
+      // --- 1. MAIN 70/30 GRID (flex-grow and min-h-0) ---
+      <div className="grid grid-cols-10 gap-6 flex-grow min-h-0">
+        
+        {/* --- 2. LEFT COLUMN (overflow-y-auto) --- */}
+        <div className="col-span-10 lg:col-span-7 flex flex-col space-y-6 overflow-y-auto pr-2">
+          
+          {/* --- "Action Required" Row (Unchanged) --- */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-red-900/40 border border-red-500/50 p-5 rounded-2xl shadow-2xl animate-pulse">
+              <div className="flex items-center gap-3">
+                <HiOutlineExclamationCircle className="w-8 h-8 text-red-400" />
+                <span className="text-lg font-semibold text-red-300">Action Required</span>
+              </div>
+              <p className="text-5xl font-bold text-white mt-3">
+                {statsData.actionCards.pendingHospitals}
+              </p>
+              <p className="text-red-300">Pending Hospital Approvals</p>
+            </div>
+            <div className="bg-red-900/40 border border-red-500/50 p-5 rounded-2xl shadow-2xl animate-pulse">
+              <div className="flex items-center gap-3">
+                <HiOutlineExclamationCircle className="w-8 h-8 text-red-400" />
+                <span className="text-lg font-semibold text-red-300">Action Required</span>
+              </div>
+              <p className="text-5xl font-bold text-white mt-3">
+                {statsData.actionCards.pendingBookings}
+              </p>
+              <p className="text-red-300">Pending Bed & Ambulance Bookings</p>
+            </div>
           </div>
-        )}
+
+          {/* --- "Key Stats" Row (NEW: STYLED & FLASHING) --- */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Total Users */}
+            <div className="bg-blue-900/40 border border-blue-500/50 p-5 rounded-2xl shadow-2xl animate-pulse">
+              <HiOutlineUsers className="w-8 h-8 text-blue-300" />
+              <p className="text-4xl font-bold text-white mt-2">{statsData.keyStats.totalUsers}</p>
+              <p className="text-blue-300">Total Users</p>
+            </div>
+            {/* Total Operators */}
+            <div className="bg-blue-900/40 border border-blue-500/50 p-5 rounded-2xl shadow-2xl animate-pulse">
+              <HiOutlineUserGroup className="w-8 h-8 text-blue-300" />
+              <p className="text-4xl font-bold text-white mt-2">{statsData.keyStats.totalOperators}</p>
+              <p className="text-blue-300">Total Operators</p>
+            </div>
+            {/* Total Hospitals */}
+            <div className="bg-green-900/40 border border-green-500/50 p-5 rounded-2xl shadow-2xl animate-pulse">
+              <HiOutlineOfficeBuilding className="w-8 h-8 text-green-300" />
+              <p className="text-4xl font-bold text-white mt-2">{statsData.keyStats.totalHospitals}</p>
+              <p className="text-green-300">Total Hospitals</p>
+            </div>
+            {/* Total Bookings */}
+            <div className="bg-fuchsia-900/40 border border-fuchsia-500/50 p-5 rounded-2xl shadow-2xl animate-pulse">
+              <HiOutlineCollection className="w-8 h-8 text-fuchsia-300" />
+              <p className="text-4xl font-bold text-white mt-2">{statsData.keyStats.totalBookings}</p>
+              <p className="text-fuchsia-300">Total Bookings</p>
+            </div>
+          </div>
+          
+          {/* --- "Smart Charts" Row 1 (NEW: STYLED & FLASHING) --- */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Bed Availability */}
+            <div className="bg-blue-900/40 border border-blue-500/50 p-5 rounded-2xl h-80 animate-pulse">
+              <BedAvailability data={statsData.availability.beds} />
+            </div>
+            {/* Ambulance Availability */}
+            <div className="bg-fuchsia-900/40 border border-fuchsia-500/50 p-5 rounded-2xl h-80 animate-pulse">
+              <AmbulanceAvailability data={statsData.availability.ambulances} />
+            </div>
+          </div>
+          
+          {/* --- "Smart Charts" Row 2 --- */}
+          <div className="bg-gray-900/70 border border-blue-500/30 p-5 rounded-2xl h-80">
+            <DiseaseBarChart chartData={statsData.charts.topDiseases} />
+          </div>
+
+          {/* --- "Smart Charts" Row 3 (Line Chart) --- */}
+          <div className="bg-gray-900/70 border border-blue-500/30 p-5 rounded-2xl h-96">
+            <HospitalLineChart chartData={statsData.charts.hospitalTrends} />
+          </div>
+        </div>
+
+        {/* --- 4. RIGHT COLUMN (Live Feed) --- */}
+        <div className="col-span-10 lg:col-span-3 flex flex-col space-y-4 h-full">
+          <h3 className="text-2xl font-semibold text-cyan-400 flex items-center gap-2 flex-shrink-0">
+            <HiOutlineLightningBolt />
+            Live Activity Feed
+          </h3>
+          
+          <div className="bg-gray-900/70 border border-blue-500/30 p-4 rounded-2xl flex-grow overflow-y-auto space-y-4">
+            {feedData.length === 0 ? (
+              <p className="text-gray-400 text-center py-10">No recent activity.</p>
+            ) : (
+              feedData.map((item, index) => (
+                <div key={index} className="flex gap-3 border-b border-gray-800/50 pb-3 last:border-b-0">
+                  <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-full bg-gray-700/50 text-cyan-300">
+                    {item.type === 'signup' && <HiUser />}
+                    {item.type === 'prediction' && <HiOutlineBeaker />}
+                    {item.type === 'bed_request' && <FaBed />}
+                    {item.type === 'amb_request' && <FaAmbulance />}
+                    {item.type === 'bed_update' && (item.data.status === 'confirmed' ? <HiCheck /> : <HiOutlineX />)}
+                    {/* --- THIS IS THE FIX for the empty items --- */}
+                    {item.type === 'amb_update' && (item.data.status === 'confirmed' ? <HiCheck /> : <HiOutlineX />)}
+                  </div>
+                  <div className="text-sm">
+                    {item.type === 'signup' && (
+                      <p className="text-white">New {item.data.role} Signup: <span className="font-bold">{item.data.fullName}</span></p>
+                    )}
+                    {item.type === 'prediction' && (
+                      <p className="text-white"><span className="font-bold">{item.data.user?.fullName || "User"}</span> predicted <span className="text-green-400 font-medium">{item.data.predictedDisease}</span></p>
+                    )}
+                    {item.type === 'bed_request' && (
+                      <p className="text-white"><span className="font-bold">{item.data.user?.fullName || "User"}</span> requested a <span className="text-blue-300">{item.data.bed_type}</span> bed at <span className="text-gray-400">{item.data.hospital?.name}</span></p>
+                    )}
+                    {item.type === 'amb_request' && (
+                      <p className="text-white"><span className="font-bold">{item.data.user?.fullName || "User"}</span> requested an ambulance from <span className="text-gray-400">{item.data.hospital?.name}</span></p>
+                    )}
+                    {item.type === 'bed_update' && (
+                      <p className="text-white">Bed booking for <span className="font-bold">{item.data.user?.fullName || "User"}</span> was <span className={item.data.status === 'confirmed' ? "text-green-4Player" : "text-red-400"}>{item.data.status}</span></p>
+                    )}
+                    {/* --- THIS IS THE FIX for the empty items --- */}
+                    {item.type === 'amb_update' && (
+                      <p className="text-white">Ambulance for <span className="font-bold">{item.data.user?.fullName || "User"}</span> was <span className={item.data.status === 'confirmed' ? "text-green-400" : "text-red-400"}>{item.data.status}</span></p>
+                    )}
+                    <p className="text-xs text-gray-500">{new Date(item.timestamp).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+)}
 
 
         {activeTab === "history" && (

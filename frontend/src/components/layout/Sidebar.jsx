@@ -57,6 +57,12 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role, activeTab }) => {
       },
     ],
     Admin: [
+
+      {
+        label: "System Analytics",
+        tab: "analytics",
+        icon: <HiOutlineChartPie />,
+      },
       { label: "Profile", tab: "profile", icon: <HiOutlineUserCircle /> },
       {
         label: "Pending Requests",
@@ -83,11 +89,7 @@ const Sidebar = ({ isOpen, toggleSidebar, setActiveTab, role, activeTab }) => {
       tab: "history",
       icon: <HiOutlineArchive />,
       },
-      {
-        label: "System Analytics",
-        tab: "analytics",
-        icon: <HiOutlineChartPie />,
-      },
+      
     ],
   };
 
