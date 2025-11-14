@@ -8,4 +8,13 @@ export default defineConfig({
     tailwindcss(),
   ],
   darkMode: "class",
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://vitalis-api.vercel.app",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
 })

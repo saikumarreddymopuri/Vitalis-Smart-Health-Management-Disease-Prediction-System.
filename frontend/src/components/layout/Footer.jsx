@@ -1,5 +1,5 @@
 import React from "react";
-import { TbHexagonLetterV } from "react-icons/tb";
+import { TbHexagonLetterV,TbCircleLetterG } from "react-icons/tb";
 
 const Footer = ({ isOpen }) => (
   // --- NEW: Glassmorphic background with neon border ---
@@ -18,7 +18,11 @@ const Footer = ({ isOpen }) => (
         <span className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400">
           VITALIS
         </span>
-        . All rights reserved.
+        . All rights reserved
+        <span className="font-semibold  text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-cyan-400">
+          .     MOPURI SAIKUMAR REDDY 
+        </span>
+         
       </p>
     </div>
   </footer>

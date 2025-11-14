@@ -1140,9 +1140,14 @@ const UserDashboard = () => {
         }
         setLoading(true);
         try {
-          const res = await fetch("http://localhost:5000/predict", {
+          const res = await fetch(
+          "https://vitalis-api.vercel.app/api/symptoms/predict",
+          {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({ symptoms: selectedSymptoms }),
           });
           const data = await res.json();

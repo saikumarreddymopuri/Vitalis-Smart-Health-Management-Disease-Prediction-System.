@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "/api/v1",
+  baseURL: "https://vitalis-api.vercel.app",
   withCredentials: true,
 });
 
