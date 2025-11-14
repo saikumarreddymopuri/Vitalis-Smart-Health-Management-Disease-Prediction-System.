@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from "react"; // --- 1. IMPORT useContext ---
 import { UserContext } from "../context/UserContext"; // --- 2. IMPORT UserContext ---
-import Header from "../components/Layout/Header.jsx";
-import Sidebar from "../components/Layout/Sidebar.jsx";
-import Footer from "../components/Layout/Footer.jsx";
+import Header from "../components/layout/Header.jsx";
+import Sidebar from "../components/layout/Sidebar.jsx";
+import Footer from "../components/layout/Footer.jsx";
 import { toast } from "react-hot-toast"; // --- 3. IMPORT toast ---
 
 // --- 4. IMPORT ALL THE ICONS WE NEED ---

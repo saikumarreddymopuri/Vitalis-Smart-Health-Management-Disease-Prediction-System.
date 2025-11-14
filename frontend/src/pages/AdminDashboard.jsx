@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import Header from "../components/Layout/Header.jsx";
-import Sidebar from "../components/Layout/Sidebar.jsx";
-import Footer from "../components/Layout/Footer.jsx";
+import Header from "../components/layout/Header.jsx";
+import Sidebar from "../components/layout/Sidebar.jsx";
+import Footer from "../components/layout/Footer.jsx";
 // import RoleDoughnutChart from "../components/Admin/Charts/RoleDoughnutChart.jsx";
 import DiseaseBarChart from "../components/Admin/Charts/DiseaseBarChart.jsx";
 import HospitalLineChart from "../components/Admin/Charts/HospitalLineChart.jsx";

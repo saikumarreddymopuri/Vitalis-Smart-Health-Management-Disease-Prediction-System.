@@ -1,7 +1,7 @@
-// pages/Profile.jsx
+
 import React, { useState } from "react";
-import Header from "../Layout/Header.jsx";
-import Sidebar from "../Layout/Sidebar.jsx";
+import Header from "../layout/Header.jsx";
+import Sidebar from "../layout/Sidebar.jsx";
 
 const Profile = () => {
   const [isOpen, setIsOpen] = useState(false);
