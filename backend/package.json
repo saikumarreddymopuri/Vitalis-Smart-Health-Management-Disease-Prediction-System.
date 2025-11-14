@@ -1,10 +1,13 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon -r dotenv/config --experimental-json-modules src/server.js"
+    "dev": "nodemon -r dotenv/config src/server.js",
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "author": "saikumar reddy",
   "license": "ISC",
@@ -32,3 +35,4 @@
     "socket.io": "^4.8.1"
   }
 }
+

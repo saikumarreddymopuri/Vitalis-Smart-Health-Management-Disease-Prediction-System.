@@ -1,53 +1,33 @@
-import http from "http";
-import { Server } from "socket.io";
+// src/server.js
 import dotenv from "dotenv";
+dotenv.config();
+
+// Ensure DB connects when Vercel cold-starts the function
 import connectDB from "./db/index.js";
 import { app } from "./app.js";
 
-dotenv.config();
+let dbConnected = false;
 
-const PORT = process.env.PORT || 4000;
-
-connectDB()
-  .then(() => {
-    const server = http.createServer(app);
-
-    let io = null;
-
-    // Enable Socket.IO only in development
-    if (process.env.NODE_ENV !== "production") {
-      io = new Server(server, {
-        cors: {
-          origin: "http://localhost:5173",
-          methods: ["GET", "POST"],
-          credentials: true,
-        },
-      });
-
-      global.io = io;
-
-      io.on("connection", (socket) => {
-        console.log("📡 New client connected:", socket.id);
-
-        socket.on("join", (userId) => {
-          console.log("✅ Joining socket room:", userId);
-          socket.join(userId);
-        });
-
-        socket.on("disconnect", () => {
-          console.log("❌ Client disconnected:", socket.id);
-        });
-      });
-
-      console.log("🟢 Socket.IO ENABLED (Development)");
-    } else {
-      console.log("🟡 Socket.IO DISABLED in production");
+// Connect once per cold start (Vercel may reuse the same instance)
+const ensureDb = async () => {
+  if (!dbConnected) {
+    try {
+      await connectDB();
+      dbConnected = true;
+      console.log("✅ MongoDB connected (cold-start)");
+    } catch (err) {
+      console.error("❌ MongoDB connection error (cold-start):", err);
+      // don't throw here - let incoming request surface error if DB not ready
     }
+  }
+};
 
-    server.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("❌ Failed to connect DB:", err);
-  });
+// Default export is the Express app handler for @vercel/node
+// We wrap to ensure DB connection attempt on first request
+export default async function handler(req, res) {
+  // ensure DB connected (non-blocking if already connected)
+  await ensureDb();
+
+  // Pass through to Express app
+  return app(req, res);
+}
