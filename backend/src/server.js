@@ -1,4 +1,13 @@
 // src/server.js
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+
+
 import dotenv from "dotenv";
 dotenv.config();
 
