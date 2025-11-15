@@ -198,7 +198,7 @@ useEffect(() => {
   return (
 
 
-    <div className="min-h-screen bg-white pt-20 pb-16 text-black dark:bg-gray-900 dark:text-white transition-colors duration-300">
+    <div className="min-h-screen pt-20 pb-16 bg-gray-950 text-gray-200 transition-colors duration-300">
       <Header
         toggleSidebar={() => setIsOpen(!isOpen)}
         avatarUrl={user.avatar}
