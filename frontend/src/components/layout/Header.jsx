@@ -16,6 +16,7 @@ const Header = ({ toggleSidebar, avatarUrl, name, userId, isOpen }) => {
   const handleLogout = async () => {
     try {
         const token = localStorage.getItem("token");
+        console.log("TOKEN BEFORE LOGOUT:", token);
 
         await API.post(
           "/api/v1/users/logout",

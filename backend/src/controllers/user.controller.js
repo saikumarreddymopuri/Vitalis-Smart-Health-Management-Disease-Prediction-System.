@@ -191,29 +191,48 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
 // LOGOUT USER
 export const logoutUser = async (req, res, next) => {
   try {
+    // Accept refreshToken from 3 places:
     const refreshToken =
-      req.cookies?.refreshToken || req.header("x-refresh-token");
+      req.cookies?.refreshToken || 
+      req.header("x-refresh-token") ||
+      req.header("Authorization")?.replace("Bearer ", "");
 
     if (!refreshToken) {
-      throw new ApiError(401, "Refresh token missing");
+      return res
+        .status(200)
+        .json(new ApiResponse(200, null, "Already logged out")); 
     }
 
+    // Find user with that token
     const user = await User.findOne({ refreshToken });
 
-    if (!user) {
-      throw new ApiError(401, "Invalid refresh token");
+    // If no user found, still allow logout (to avoid 401)
+    if (user) {
+      user.refreshToken = null;
+      await user.save();
     }
 
-    user.refreshToken = null;
-    await user.save();
+    // Clear cookies properly for Vercel
+    res.clearCookie("accessToken", {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+    });
 
-    res.clearCookie("refreshToken", { httpOnly: true, sameSite: "strict" });
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      sameSite: "none",
+      secure: true,
+    });
 
-    res.status(200).json(new ApiResponse(200, null, "Logged out successfully"));
+    return res
+      .status(200)
+      .json(new ApiResponse(200, null, "Logged out successfully"));
   } catch (error) {
     next(error);
   }
 };
+
 
 // refresh access token
 export const refreshAccessToken = async (req, res, next) => {
