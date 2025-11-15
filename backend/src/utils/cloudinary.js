@@ -30,26 +30,32 @@
 
 import { v2 as cloudinary } from "cloudinary";
 
-// Cloudinary config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Upload buffer to Cloudinary
-const uploadOnCloudinary = async (fileBuffer, folder = "avatars") => {
+export const uploadOnCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder },
+    if (!fileBuffer) return resolve(null);
+
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: "avatars",
+        resource_type: "auto",
+      },
       (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
+        if (error) {
+          console.error("Cloudinary Upload Error:", error);
+          return reject(error);
+        }
+        resolve(result); // MUST resolve result
       }
     );
 
-    stream.end(fileBuffer);
+    uploadStream.end(fileBuffer); // IMPORTANT
   });
 };
 
-export { uploadOnCloudinary };
+

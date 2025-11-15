@@ -10,9 +10,11 @@ import { sendWelcomeEmail, sendVerificationEmail } from "../utils/email.js";
 // REGISTER USER (Manual)
 export const registerUser = asyncHandler(async (req, res) => {
   const { fullName, username, email, password, phone, role } = req.body;
-  const avatarLocalPath = req.file?.path;
+  // const avatarLocalPath = req.file?.path;
+  const avatarBuffer = req.file?.buffer;
 
-  if (!fullName || !username || !email || !password || !avatarLocalPath || !phone) {
+
+  if (!fullName || !username || !email || !password || !avatarBuffer || !phone) {
     throw new ApiError(400, "All fields are required including avatar.");
   }
 
@@ -23,7 +25,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   }
 
   // const avatarUpload = await uploadOnCloudinary(avatarLocalPath);
-  const avatarUpload = await uploadOnCloudinary(req.file.buffer);
+  const avatarUpload = await uploadOnCloudinary(avatarBuffer);
 
   if (!avatarUpload?.url) {
     throw new ApiError(500, "Avatar upload failed");
