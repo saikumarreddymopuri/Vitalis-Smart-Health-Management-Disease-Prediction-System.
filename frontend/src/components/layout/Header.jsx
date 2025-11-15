@@ -15,7 +15,18 @@ const Header = ({ toggleSidebar, avatarUrl, name, userId, isOpen }) => {
 
   const handleLogout = async () => {
     try {
-      await API.post("/api/v1/users/logout");
+        const token = localStorage.getItem("token");
+
+        await API.post(
+          "/api/v1/users/logout",
+          {},
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       navigate("/");
