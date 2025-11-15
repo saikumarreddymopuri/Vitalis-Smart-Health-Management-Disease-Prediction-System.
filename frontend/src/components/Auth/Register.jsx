@@ -109,38 +109,50 @@ const Register = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!avatar) {
-      setMessage({ type: "error", text: "Please upload or take a photo" });
-      return;
-    }
+  if (!avatar) {
+    setMessage({ type: "error", text: "Please upload or take a photo" });
+    return;
+  }
 
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, value);
+  const data = new FormData();
+  Object.entries(formData).forEach(([key, value]) => {
+    data.append(key, value);
+  });
+  data.append("avatar", avatar);
+
+  try {
+    setLoading(true);
+    setMessage(null);
+
+    // ✅ Clean AXIOS request — no fetch-style usage
+    const response = await API.post("/api/v1/users/register", data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
-    data.append("avatar", avatar);
 
-    try {
-      setLoading(true);
-      setMessage(null);
+    setLoading(false);
 
-      const response = await API.post("/api/v1/users/register", data);
+    setMessage({
+      type: "success",
+      text: response.data.message || "Registered successfully! Redirecting to login...",
+    });
 
-      setLoading(false);
+    setTimeout(() => navigate("/"), 2000);
 
-      setMessage({
-        type: "success",
-        text: response.data.message || "Registered successfully! Redirecting to login...",
-      });
+  } catch (error) {
+    console.error("❌ Register error:", error);
+    setLoading(false);
 
-      setTimeout(() => navigate("/"), 2000);
-    } catch (error) {
-      setLoading(false);
-      setMessage({ type: "error", text: "Something went wrong!" });
-    }
-  };
+    setMessage({
+      type: "error",
+      text: error.response?.data?.message || "Something went wrong!",
+    });
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4 relative overflow-hidden">
