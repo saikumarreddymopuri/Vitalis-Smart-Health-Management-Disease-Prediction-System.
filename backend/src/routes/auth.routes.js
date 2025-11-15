@@ -30,7 +30,7 @@ router.get("/google/callback",
         sameSite: "none",
         secure: true,
       })
-      .redirect(`${process.env.CLIENT_URL}/google-success?from=google`);
+      .redirect(`${process.env.CLIENT_URL}/google-success?token=${accessToken}`);
   }
 );
 
