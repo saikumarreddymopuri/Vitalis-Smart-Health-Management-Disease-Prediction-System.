@@ -22,7 +22,8 @@ export const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(409, "User already exists with given email or username.");
   }
 
-  const avatarUpload = await uploadOnCloudinary(avatarLocalPath);
+  // const avatarUpload = await uploadOnCloudinary(avatarLocalPath);
+  const avatarUpload = await uploadOnCloudinary(req.file.buffer);
 
   if (!avatarUpload?.url) {
     throw new ApiError(500, "Avatar upload failed");
