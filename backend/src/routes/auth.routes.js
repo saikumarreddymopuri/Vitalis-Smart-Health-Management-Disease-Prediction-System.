@@ -12,7 +12,7 @@ router.get("/google", passport.authenticate("google", {
 router.get("/google/callback",
   passport.authenticate("google", {
     failureRedirect: `${process.env.CLIENT_URL}/login`,
-    session: false
+    session: true,
   }),
   (req, res) => {
     const user = req.user;
@@ -22,11 +22,13 @@ router.get("/google/callback",
     res
       .cookie("accessToken", accessToken, {
         httpOnly: true,
-        sameSite: "Lax"
+        sameSite: "none",
+        secure: true,
       })
       .cookie("refreshToken", refreshToken, {
         httpOnly: true,
-        sameSite: "Lax"
+        sameSite: "none",
+        secure: true,
       })
       .redirect(`${process.env.CLIENT_URL}/google-success?from=google`);
   }

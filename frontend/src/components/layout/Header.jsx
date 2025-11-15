@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import API from "../../utils/api";
+
 import ReactDOM from "react-dom"; // --- 1. IMPORT REACTDOM ---
 import { useNavigate } from "react-router-dom";
 import Notifications from "./Notifications";
@@ -13,10 +15,7 @@ const Header = ({ toggleSidebar, avatarUrl, name, userId, isOpen }) => {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:4000/api/v1/users/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await API.post("/api/v1/users/logout");
       localStorage.removeItem("user");
       localStorage.removeItem("token");
       navigate("/");

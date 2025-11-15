@@ -1,3 +1,4 @@
+import API from "../../utils/api";
 
 import { useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
@@ -8,31 +9,31 @@ const GoogleSuccess = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch("http://localhost:4000/api/v1/users/me", {
-          credentials: "include",
-        });
-        const data = await res.json();
+  const fetchUser = async () => {
+    try {
+      const res = await API.get("/api/v1/users/me", {
+        withCredentials: true,  // ⭐ REQUIRED
+      });
 
-        if (res.ok && data?.data?.user) {
-          localStorage.setItem("user", JSON.stringify(data.data.user));
-          setUser(data.data.user);
+      const user = res.data.data.user;
 
-          // Redirect to role-based dashboard
-          const role = data.data.user.role.toLowerCase();
-          navigate(`/${role}-dashboard`);
-        } else {
-          navigate("/login");
-        }
-      } catch (err) {
-        console.error("Failed to fetch user after Google login:", err);
+      if (user) {
+        localStorage.setItem("user", JSON.stringify(user));
+        setUser(user);
+        const role = user.role.toLowerCase();
+        navigate(`/${role}-dashboard`);
+      } else {
         navigate("/login");
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch user after Google login:", err);
+      navigate("/login");
+    }
+  };
 
-    fetchUser();
-  }, []);
+  fetchUser();
+}, []);
+
 
   return <p className="text-center mt-10">Logging you in via Google...</p>;
 };

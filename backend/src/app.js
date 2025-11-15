@@ -20,7 +20,8 @@ import analyticsRoutes from "./routes/analytics.routes.js";
 const app = express()
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: [
+      process.env.CORS_ORIGIN],
     credentials: true
 }));
 
@@ -33,7 +34,12 @@ app.use(cookieParser())
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: true
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: true,        // ⭐ required on Vercel
+    sameSite: "none",    // ⭐ required for cross-site cookies
+  }
 }));
 
 app.use(passport.initialize());

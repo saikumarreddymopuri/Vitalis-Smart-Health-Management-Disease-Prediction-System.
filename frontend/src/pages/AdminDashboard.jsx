@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Header from "../components/layout/Header.jsx";
+import API from "../utils/api";
+
 import Sidebar from "../components/layout/Sidebar.jsx";
 import Footer from "../components/layout/Footer.jsx";
 // import RoleDoughnutChart from "../components/Admin/Charts/RoleDoughnutChart.jsx";
@@ -54,17 +56,8 @@ const AdminDashboard = () => {
     const fetchPendingHospitals = async () => {
       if (activeTab === "pending") {
         try {
-          const res = await fetch(
-            "http://localhost:4000/api/hospitals/pending",
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          const data = await res.json();
-          setPendingHospitals(data.data || []);
-          console.log("📥 Pending hospitals:", data.data);
+          const res = await API.get("/api/hospitals/pending");
+          setPendingHospitals(res.data.data || []);
         } catch (err) {
           console.error("❌ Error fetching pending:", err);
         }
@@ -76,20 +69,11 @@ const AdminDashboard = () => {
 
   const handleApprove = async (id) => {
     try {
-      const res = await fetch(
-        `http://localhost:4000/api/hospitals/${id}/verify`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await API.put(`/api/hospitals/${id}/verify`);
 
-      if (res.ok) {
-        setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
-        alert("✅ Approved successfully"); // --- We will change this later ---
-      }
+      setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
+      toast.success("✅ Approved successfully");
+
     } catch (err) {
       console.error("❌ Error approving:", err);
     }
@@ -97,17 +81,11 @@ const AdminDashboard = () => {
 
   const handleReject = async (id) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/hospitals/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await API.delete(`/api/hospitals/${id}`);
 
-      if (res.ok) {
-        setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
-        alert("❌ Rejected & removed"); // --- We will change this later ---
-      }
+      setPendingHospitals((prev) => prev.filter((h) => h._id !== id));
+      toast.success("❌ Rejected & removed");
+
     } catch (err) {
       console.error("❌ Error rejecting:", err);
     }
@@ -137,24 +115,9 @@ const handleProfileSave = async () => {
   setIsLoading(true);
   try {
     const token = localStorage.getItem("token");
-    const res = await fetch("http://localhost:4000/api/v1/users/update-me", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(profileData),
-    });
+    const res = await API.patch("/api/v1/users/update-me", profileData);
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to update profile");
-    }
-
-    // 1. Update the global context (which updates the Header)
-    setUser(data.data);
-    // 2. localStorage is updated by UserContext automatically
-
+    setUser(res.data.data);
     toast.success("Profile updated successfully!");
     setIsEditing(false);
   } catch (err) {
@@ -179,20 +142,8 @@ useEffect(() => {
   const fetchHospitalHistory = async () => {
     if (activeTab === "history") {
       try {
-        const res = await fetch(
-          "http://localhost:4000/api/hospitals/admin/history",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-        const data = await res.json();
-        if (res.ok) {
-          setHospitalHistory(data.data || []);
-        } else {
-          toast.error("Failed to fetch hospital history");
-        }
+        const res = await API.get("/api/hospitals/admin/history");
+        setHospitalHistory(res.data.data || []);
       } catch (err) {
         console.error("❌ Error fetching hospital history:", err);
         toast.error("An error occurred while fetching history");
@@ -219,32 +170,12 @@ useEffect(() => {
       try {
         // Fetch main stats and feed in parallel
         const [statsRes, feedRes] = await Promise.all([
-          fetch("http://localhost:4000/api/v1/analytics/main", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch("http://localhost:4000/api/v1/analytics/feed", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+        API.get("/api/v1/analytics/main"),
+        API.get("/api/v1/analytics/feed"),
         ]);
 
-        const stats = await statsRes.json();
-        const feed = await feedRes.json();
-
-        // --- THIS IS THE FIX ---
-        // We check for 'stats.data' instead of 'stats.success'
-        if (stats.data) {
-          setStatsData(stats.data);
-        } else {
-          toast.error("Failed to load analytics stats");
-        }
-
-        // We check for 'feed.data' instead of 'feed.success'
-        if (feed.data) {
-          setFeedData(feed.data || []);
-        } else {
-          toast.error("Failed to load live feed");
-        }
-        // --- END OF FIX ---
+        setStatsData(statsRes.data.data || []);
+        setFeedData(feedRes.data.data || []);
 
       } catch (err) {
         console.error(err);

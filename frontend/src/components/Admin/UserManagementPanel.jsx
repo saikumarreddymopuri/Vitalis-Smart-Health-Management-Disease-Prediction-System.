@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import API from "../../utils/api";
 import ReactDOM from "react-dom"; // --- 1. IMPORT REACTDOM (for the modal) ---
 import { toast } from "react-hot-toast";
 // --- 2. IMPORT NEW ICONS ---
@@ -37,20 +38,9 @@ const UserManagementPanel = ({ roleToManage, token }) => {
       const endpoint =
         roleToManage === "User" ? "admin/users" : "admin/operators";
       try {
-        const res = await fetch(
-          `http://localhost:4000/api/v1/users/${endpoint}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const res = await API.get(`/api/v1/users/${endpoint}`);
+        setListData(res.data.data || []);
 
-        if (!res.ok) {
-          throw new Error(`Failed to fetch ${roleToManage}s`);
-        }
-        const data = await res.json();
-        setListData(data.data || []);
       } catch (err) {
         setError(err.message);
         toast.error(`Error: ${err.message}`);
@@ -100,28 +90,17 @@ const UserManagementPanel = ({ roleToManage, token }) => {
     setIsUpdating(true); // Start loading
 
     try {
-      const res = await fetch(
-        `http://localhost:4000/api/v1/users/admin/user/${selectedUser._id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(editFormData),
-        }
+      const res = await API.patch(
+        `/api/v1/users/admin/user/${selectedUser._id}`,
+        editFormData
       );
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to update");
-      }
 
       setListData(
         listData.map((user) =>
-          user._id === selectedUser._id ? data.data : user
+          user._id === selectedUser._id ? res.data.data : user
         )
       );
+
       toast.success(`${roleToManage} updated successfully!`);
       handleModalClose();
     } catch (err) {
@@ -135,22 +114,9 @@ const UserManagementPanel = ({ roleToManage, token }) => {
     if (!selectedUser || !isDeleting) return;
 
     try {
-      const res = await fetch(
-        `http://localhost:4000/api/v1/users/admin/user/${selectedUser._id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await API.delete(`/api/v1/users/admin/user/${selectedUser._id}`);
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "Failed to delete");
-      }
-
-      setListData(listData.filter((user) => user._id !== selectedUser._id));
+      setListData(listData.filter((u) => u._id !== selectedUser._id));
       toast.success(`${roleToManage} deleted successfully!`);
       handleModalClose();
     } catch (err) {

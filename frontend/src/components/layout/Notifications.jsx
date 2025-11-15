@@ -1,6 +1,8 @@
 // src/components/Notifications.jsx
 import React, { useState, useEffect, useRef } from "react"; // --- 1. IMPORT useRef ---
-import { socket, useSocket } from "../../hooks/useSocket";
+// import { socket, useSocket } from "../../hooks/useSocket";
+import API from "../../utils/api";
+
 import { toast } from "react-hot-toast";
 import { HiOutlineBell } from "react-icons/hi"; // --- 2. IMPORT THE BELL ICON ---
 
@@ -35,53 +37,35 @@ const Notifications = ({ userId }) => {
   // This will call setShowDropdown(false) if you click outside of dropdownRef
   useClickOutside(dropdownRef, () => setShowDropdown(false));
 
-  useSocket(userId, (notif) => {
-    setNotifs((prev) => [notif, ...prev]);
-  });
+  // useSocket(userId, (notif) => {
+  //   setNotifs((prev) => [notif, ...prev]);
+  // });
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/notifications", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      credentials: "include",
-    })
-      .then((r) => r.json())
-      .then((d) => setNotifs(d.data || []));
-  }, []);
+  API.get("/api/notifications")
+    .then((res) => setNotifs(res.data.data || []))
+    .catch(() => setNotifs([]));
+}, []);
 
   const markSeen = async (id) => {
-    await fetch(`http://localhost:4000/api/notifications/${id}/seen`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-      credentials: "include",
-    });
-    setNotifs((prev) =>
-      prev.map((n) => (n._id === id ? { ...n, seen: true } : n))
-    );
-  };
+  await API.put(`/api/notifications/${id}/seen`);
+
+  setNotifs((prev) =>
+    prev.map((n) => (n._id === id ? { ...n, seen: true } : n))
+  );
+};
 
   const handleDeleteNotification = async (id) => {
-    try {
-      const res = await fetch(`http://localhost:4000/api/notifications/${id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to delete notification");
-      }
-      setNotifs((prev) => prev.filter((n) => n._id !== id));
-      toast.success("Notification removed!");
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
+  try {
+    await API.delete(`/api/notifications/${id}`);
+
+    setNotifs((prev) => prev.filter((n) => n._id !== id));
+    toast.success("Notification removed!");
+  } catch (err) {
+    toast.error(err.response?.data?.message || err.message);
+  }
+};
+
 
   const unreadCount = notifs.filter((n) => !n.seen).length;
 

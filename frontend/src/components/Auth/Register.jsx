@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import API from "../../utils/api";
+
 // --- NEW: Added icons for branding, avatar, and new camera feature ---
 import { TbHexagonLetterV } from "react-icons/tb";
 import { HiUser, HiCamera, HiOutlineUpload, HiX } from "react-icons/hi";
@@ -123,29 +125,17 @@ const Register = () => {
     try {
       setLoading(true);
       setMessage(null);
-      const response = await fetch("http://localhost:4000/api/v1/users/register", {
-        method: "POST",
-        body: data,
-        credentials: "include",
-      });
 
-      const result = await response.json();
+      const response = await API.post("/api/v1/users/register", data);
+
       setLoading(false);
 
-      if (response.ok) {
-        setMessage({
-          type: "success",
-          text: result.message || "Registered successfully! Redirecting to login...",
-        });
-        setTimeout(() => {
-          navigate("/");
-        }, 2000);
-      } else {
-        setMessage({
-          type: "error",
-          text: result.message || "Registration failed!",
-        });
-      }
+      setMessage({
+        type: "success",
+        text: response.data.message || "Registered successfully! Redirecting to login...",
+      });
+
+      setTimeout(() => navigate("/"), 2000);
     } catch (error) {
       setLoading(false);
       setMessage({ type: "error", text: "Something went wrong!" });

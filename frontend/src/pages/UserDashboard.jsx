@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import API from "../utils/api";
+
 import Header from "../components/layout/Header.jsx";
 import Sidebar from "../components/layout/Sidebar.jsx";
 import Footer from "../components/layout/Footer.jsx";
@@ -71,16 +73,8 @@ const UserDashboard = () => {
       }
 
       try {
-        const res = await fetch("http://localhost:4000/api/symptoms", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await res.json();
-        console.log("📜 Prediction history response:", data);
-        setHistory(data.data); // ✅ store array of predictions
+        const res = await API.get("/api/symptoms");
+        setHistory(res.data.data);
       } catch (err) {
         console.error("❌ Failed to fetch prediction history:", err);
       }
@@ -100,16 +94,8 @@ const UserDashboard = () => {
   const fetchUserBookings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:4000/api/bookings/user", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setUserBookings(data.data || []);
-      }
+      const res = await API.get("/api/bookings/user");
+      setUserBookings(res.data.data || []);
     } catch (err) {
       console.error("❌ Failed to load bookings", err);
     }
@@ -131,13 +117,8 @@ const UserDashboard = () => {
       if (activeTab === "bookAmbulance" && selectedAmbulanceInfo) {
         try {
           const token = localStorage.getItem("token");
-          const res = await fetch(
-            `http://localhost:4000/api/ambulances/${selectedAmbulanceInfo.hospitalId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-
-          const data = await res.json();
-          setAvailableAmbulances(data.data || []);
+          const res = await API.get(`/api/ambulances/${selectedAmbulanceInfo.hospitalId}`);
+          setAvailableAmbulances(res.data.data || []);
         } catch (err) {
           console.error("❌ Error fetching ambulances", err);
         }
@@ -148,14 +129,8 @@ const UserDashboard = () => {
       if (activeTab === "bookAmbulance") {
         try {
           const token = localStorage.getItem("token");
-          const res = await fetch(
-            "http://localhost:4000/api/ambulance-bookings/user",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          const data = await res.json();
-          setUserAmbulanceBookings(data.data || []);
+          const res = await API.get("/api/ambulance-bookings/user");
+          setUserAmbulanceBookings(res.data.data || []);
         } catch (err) {
           console.error("❌ Error fetching user ambulance bookings", err);
         }
@@ -184,111 +159,75 @@ const UserDashboard = () => {
       
       // --- THIS IS THE FIX (Line 1) ---
       // I changed the URL to /api/payments, just like your app.js
-      const orderRes = await fetch(
-        "http://localhost:4000/api/payments/create-order",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ amount: amount * bedsCount }), // Total amount
+      const orderRes = await API.post("/api/payments/create-order", {
+          amount: amount * bedsCount,
+        });
+
+        const order = orderRes.data.data;
+        if (!order?.id) {
+          throw new Error("Failed to create payment order");
         }
-      );
-      // --- END OF FIX (Line 1) ---
-
-      const orderData = await orderRes.json();
-      if (!orderRes.ok || !orderData.data.id) {
-        throw new Error(orderData.message || "Failed to create payment order");
-      }
-
-      const { id: order_id, amount: orderAmount } = orderData.data;
       
       // --- STEP 2: Open the Razorpay Popup ---
       const options = {
-        key: "rzp_test_YFD4eWqY5PM6Ml", // IMPORTANT: Add your Key ID here
-        amount: orderAmount,
-        currency: "INR",
-        name: "Vitalis Health Management",
-        description: `Booking for ${bed_type} bed at ${selectedBookingInfo?.hospitalName}`,
-        image: "https://placehold.co/100x100/007BFF/FFFFFF?text=V", // Your logo
-        order_id: order_id,
+      key: "rzp_test_YFD4eWqY5PM6Ml",
+      amount: order.amount,
+      currency: "INR",
+      name: "Vitalis Health Management",
+      description: `Booking for ${bed_type} bed at ${selectedBookingInfo?.hospitalName}`,
+      image: "https://placehold.co/100x100/007BFF/FFFFFF?text=V",
+      order_id: order.id,
         
         // --- STEP 3: The Handler (Payment Success) ---
         handler: async function (response) {
-          try {
-            // --- STEP 4: Call the BED BOOKING controller ---
-            
-            // --- THIS IS THE FIX (Line 2) ---
-            // I changed the URL to /api/bookings, just like your app.js
-            const bookingRes = await fetch(
-              "http://localhost:4000/api/bookings", // Your bed booking route
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  hospitalId: hospitalId,
-                  bed_type: bed_type,
-                  disease: disease,
-                  bedsCount: bedsCount,
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              }
-            );
-            // --- END OF FIX (Line 2) ---
+        try {
+          // 4️⃣ SUBMIT BED BOOKING
+          const bookingRes = await API.post("/api/bookings", {
+            hospitalId,
+            bed_type,
+            disease,
+            bedsCount,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
 
-            const bookingData = await bookingRes.json();
+          toast.success("Payment successful! Booking request submitted.");
+          await fetchUserBookings();
+          setShowBookingForm(false);
+          setSelectedBookingInfo(null);
+        } catch (err) {
+          console.error("Payment verification error:", err);
+          toast.error(`Payment failed: ${err.message}`);
+        } finally {
+          setLoading(false);
+        }
+      },
 
-            if (!bookingRes.ok) {
-              throw new Error(
-                bookingData.message || "Payment verification failed."
-              );
-            }
+      prefill: {
+        name: user?.fullName || "User",
+        email: user?.email || "user@example.com",
+        contact: user?.phone || "9999999999",
+      },
 
-            // --- IT WORKED! ---
-            toast.success("Payment successful! Booking request submitted.");
-            await fetchUserBookings(); // Refresh the booking list
-            setShowBookingForm(false); // Hide form
-            setSelectedBookingInfo(null); // Clear info
-            
-          } catch (err) {
-            console.error("Payment verification error:", err);
-            toast.error(`Payment failed: ${err.message}`);
-          } finally {
-            setLoading(false);
-          }
-        },
-        prefill: {
-          name: user?.fullName || "User",
-          email: user?.email || "user@example.com",
-          contact: user?.phone || "9999999999",
-        },
-        theme: {
-          color: "#007BFF", // Your theme color
-        },
-        // --- Handle Payment Failure ---
-        modal: {
-          ondismiss: function () {
-            setLoading(false); // Stop loading if user closes popup
-            toast.error("Payment cancelled.");
-          },
-        },
-      };
+      theme: { color: "#007BFF" },
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-      
-    } catch (err) {
-      console.error("Payment error:", err);
-      toast.error(`Error: ${err.message}`);
-      setLoading(false);
-    }
-  };
+      modal: {
+        ondismiss: function () {
+          setLoading(false);
+          toast.error("Payment cancelled.");
+        },
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  } catch (err) {
+    console.error("Payment error:", err);
+    toast.error(`Error: ${err.message}`);
+    setLoading(false);
+  }
+};
   // const handlePayment = async ({
   //   amount,
   //   hospitalId,
@@ -412,21 +351,9 @@ const UserDashboard = () => {
         const token = localStorage.getItem("token");
 
         try {
-          const res = await fetch(
-            `http://localhost:4000/api/beds/${selectedBookingInfo?.hospitalId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+          const res = await API.get(`/api/beds/${selectedBookingInfo.hospitalId}`);
 
-          const data = await res.json();
-          if (res.ok) {
-            setAvailableBeds(data.data || []);
-          } else {
-            console.error("Failed to fetch beds:", data.message);
-          }
+          setAvailableBeds(res.data.data || []);
         } catch (err) {
           console.error("Error fetching beds:", err);
         }
@@ -459,24 +386,10 @@ const UserDashboard = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:4000/api/v1/users/update-me", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileData),
-      });
+      const res = await API.patch("/api/v1/users/update-me", profileData);
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to update profile");
-      }
+      setUser(res.data.data);
 
-      // 1. Update the global context (which updates the Header)
-      setUser(data.data);
-      // 2. localStorage is updated by UserContext automatically
-      
       toast.success("Profile updated successfully!");
       setIsEditing(false);
     } catch (err) {
@@ -502,18 +415,8 @@ const UserDashboard = () => {
     // We don't need a confirmation for a single delete, just do it
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:4000/api/bookings/${bookingId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to delete booking");
-      }
-      
-      // Instantly remove from the UI
+      await API.delete(`/api/bookings/${bookingId}`);
+
       setUserBookings((prev) => prev.filter((b) => b._id !== bookingId));
       toast.success("Booking removed from history!");
 
@@ -526,18 +429,8 @@ const UserDashboard = () => {
   const handleDeleteAllBookings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:4000/api/bookings/user/all`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to clear history");
-      }
-      
-      // Instantly remove all from UI
+      await API.delete("/api/bookings/user/all");
+
       setUserBookings([]);
       toast.success("Bed booking history cleared!");
       
@@ -588,19 +481,12 @@ const UserDashboard = () => {
   const handleDeleteAmbulanceBooking = async (bookingId) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:4000/api/ambulance-bookings/${bookingId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to delete booking");
-      }
-      
-      // Instantly remove from the UI
-      setUserAmbulanceBookings((prev) => prev.filter((b) => b._id !== bookingId));
+      await API.delete(`/api/ambulance-bookings/${bookingId}`);
+
+      setUserAmbulanceBookings((prev) =>
+        prev.filter((b) => b._id !== bookingId)
+      );
+
       toast.success("Ambulance booking removed!");
 
     } catch (err) {
@@ -612,18 +498,8 @@ const UserDashboard = () => {
   const handleDeleteAllAmbulanceBookings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:4000/api/ambulance-bookings/user/all`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to clear history");
-      }
-      
-      // Instantly remove all from UI
+      await API.delete("/api/ambulance-bookings/user/all");
+
       setUserAmbulanceBookings([]);
       toast.success("Ambulance booking history cleared!");
       
@@ -675,18 +551,8 @@ const UserDashboard = () => {
   const handleDeletePrediction = async (predictionId) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:4000/api/symptoms/${predictionId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to delete prediction");
-      }
-      
-      // Instantly remove from the UI
+      await API.delete(`/api/symptoms/${predictionId}`);
+
       setHistory((prev) => prev.filter((p) => p._id !== predictionId));
       toast.success("Prediction removed!");
 
@@ -699,18 +565,8 @@ const UserDashboard = () => {
   const handleDeleteAllHistory = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:4000/api/symptoms/user/all`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to clear history");
-      }
-      
-      // Instantly remove all from UI
+      await API.delete("/api/symptoms/user/all");
+
       setHistory([]);
       toast.success("Prediction history cleared!");
       
@@ -752,12 +608,6 @@ const UserDashboard = () => {
       </div>
     </div>
   );
-
-
-
-
-
-
 
 
 
@@ -1140,18 +990,19 @@ const UserDashboard = () => {
         }
         setLoading(true);
         try {
-          const res = await fetch(
-          "https://vitalis-api.vercel.app/api/symptoms/predict",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ symptoms: selectedSymptoms }),
-          });
-          const data = await res.json();
-          setPrediction(data.predicted_disease);
+          const predictRes = await API.post(
+            "/api/symptoms/predict",
+            
+            
+            { symptoms: selectedSymptoms }
+          );
+          console.log(selectedSymptoms);
+          const predictedDisease = predictRes.data.data.predicted_disease;
+          setPrediction(predictedDisease);
+
+          // Fetch nearby hospitals based on geolocation
+
+
           navigator.geolocation.getCurrentPosition(
             async (position) => {
               const { latitude, longitude } = position.coords;
@@ -1161,19 +1012,24 @@ const UserDashboard = () => {
                 console.error("❌ No token found in localStorage!");
                 return;
               }
-              const res = await fetch(
-                `http://localhost:4000/api/hospitals/nearby-by-disease?disease=${data.predicted_disease}&userLat=${latitude}&userLng=${longitude}`,
-                {
-                  method: "GET",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
+              try {
+                  const hospitalsRes = await API.get(
+                    `/api/hospitals/nearby-by-disease`,
+                    {
+                      params: {
+                        disease: predictedDisease.toLowerCase(),
+                        userLat: latitude,
+                        userLng: longitude,
+                      },
+                    }
+                  );
+
+                  setNearbyHospitals(hospitalsRes.data.data || []);
+                } catch (err) {
+                  console.error("Nearby hospital fetch error:", err);
                 }
-              );
-              const hospData = await res.json();
-              setNearbyHospitals(hospData.data || []);
-            },
+
+              },
             (err) => {
               console.error("Geolocation error:", err);
               toast.error(
@@ -1186,22 +1042,13 @@ const UserDashboard = () => {
             console.warn("⚠️ No token found. Cannot save prediction.");
             return;
           }
-          const saveRes = await fetch(
-            "http://localhost:4000/api/symptoms",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                symptom_list: selectedSymptoms,
-                predicted_disease: data.predicted_disease,
-              }),
-            }
-          );
-          const saveData = await saveRes.json();
-          console.log("✅ Prediction saved:", saveData);
+
+
+          await API.post("/api/symptoms", {
+          symptom_list: selectedSymptoms,
+          predicted_disease: predictedDisease,
+        });
+
         } catch (err) {
           console.error("❌ Error in prediction or saving:", err);
         } finally {
@@ -1547,39 +1394,31 @@ const UserDashboard = () => {
             e.preventDefault();
             const token = localStorage.getItem("token");
             try {
-              const res = await fetch(
-                "http://localhost:4000/api/ambulance-bookings",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    hospitalId: selectedAmbulanceInfo.hospitalId,
-                    ambulanceId: ambulanceFormData.ambulanceId,
-                    disease: selectedAmbulanceInfo.disease,
-                    pickup_location: ambulanceFormData.pickup_location,
-                    drop_location: ambulanceFormData.drop_location,
-                  }),
-                }
-              );
-              const data = await res.json();
-              if (res.ok) {
-                toast.success("✅ Ambulance booking request sent!");
-                setAmbulanceFormData({
-                  ambulanceId: "",
-                  pickup_location: "",
-                  drop_location: "",
-                });
-                setSelectedAmbulanceInfo(null);
-                // We need to refetch the bookings to show the new one
-                fetchUserBookings();
-              } else {
-                toast.error(data.message || "❌ Booking failed.");
-              }
+              const res = await API.post("/api/ambulance-bookings", {
+                hospitalId: selectedAmbulanceInfo.hospitalId,
+                ambulanceId: ambulanceFormData.ambulanceId,
+                disease: selectedAmbulanceInfo.disease,
+                pickup_location: ambulanceFormData.pickup_location,
+                drop_location: ambulanceFormData.drop_location,
+              });
+
+              toast.success("✅ Ambulance booking request sent!");
+
+              setAmbulanceFormData({
+                ambulanceId: "",
+                pickup_location: "",
+                drop_location: "",
+              });
+
+              setSelectedAmbulanceInfo(null);
+
+              // Refresh user ambulance bookings
+              fetchUserBookings();
+
             } catch (err) {
-              toast.error("An error occurred: " + err.message);
+              toast.error(
+                err.response?.data?.message || "❌ Booking failed."
+              );
             }
           }}
           className="space-y-4"

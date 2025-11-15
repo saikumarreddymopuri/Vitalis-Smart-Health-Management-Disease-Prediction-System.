@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useContext } from "react"; // --- 1. IMPORT useContext ---
 import { UserContext } from "../context/UserContext"; // --- 2. IMPORT UserContext ---
 import Header from "../components/layout/Header.jsx";
+import API from "../utils/api";
+
 import Sidebar from "../components/layout/Sidebar.jsx";
 import Footer from "../components/layout/Footer.jsx";
 import { toast } from "react-hot-toast"; // --- 3. IMPORT toast ---
@@ -72,23 +74,11 @@ const OperatorDashboard = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:4000/api/v1/users/update-me", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(profileData),
-      });
+      const res = await API.patch("/api/v1/users/update-me", profileData);
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to update profile");
-      }
-
-      setUser(data.data);
+      setUser(res.data.data);
       toast.success("Profile updated successfully!");
-      setIsEditing(false);
+    setIsEditing(false);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -108,17 +98,8 @@ const OperatorDashboard = () => {
     const fetchApprovedHospitals = async () => {
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(
-          "http://localhost:4000/api/hospitals/operator-approved",
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await res.json();
-        setApprovedHospitals(data.data || []);
+        const res = await API.get("/api/hospitals/operator-approved");
+        setApprovedHospitals(res.data.data || []);
       } catch (err) {
         console.error("❌ Failed to fetch approved hospitals", err);
       }
@@ -140,18 +121,8 @@ const OperatorDashboard = () => {
   const fetchPendingBookings = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:4000/api/bookings/operator", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setPendingBookings(data.data || []);
-      } else {
-        console.error("❌ Error fetching operator bookings:", data.message);
-      }
+      const res = await API.get("/api/bookings/operator");
+      setPendingBookings(res.data.data || []);
     } catch (err) {
       console.error("❌ Error:", err);
     }
@@ -162,25 +133,9 @@ const OperatorDashboard = () => {
   const handleUpdateStatus = async (id, newStatus) => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(
-        `http://localhost:4000/api/bookings/${id}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
-
-      const data = await res.json();
-      if (res.ok) {
-        alert(`Booking ${newStatus}`);
-        fetchPendingBookings(); // Refresh list
-      } else {
-        alert(data.message || "Failed to update booking");
-      }
+      await API.patch(`/api/bookings/${id}/status`, { status: newStatus });
+      alert(`Booking ${newStatus}`);
+      fetchPendingBookings();
     } catch (err) {
       console.error("❌ Error updating booking:", err);
     }
@@ -192,11 +147,8 @@ const OperatorDashboard = () => {
   // 🔁 Fetch hospitals created by this operator
   const fetchHospitalsForAmbulance = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/hospitals/operator", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setVerifiedHospitals(data.data || []);
+      const res = await API.get("/api/hospitals/operator");
+      setVerifiedHospitals(res.data.data || []);
     } catch (err) {
       console.error("❌ Error fetching hospitals", err);
     }
@@ -206,27 +158,16 @@ const OperatorDashboard = () => {
   const handleAddAmbulance = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch("http://localhost:4000/api/ambulances", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
+      const res = await API.post("/api/ambulances", formData);
 
-      const data = await res.json();
-      if (res.ok) {
-        alert("✅ Ambulance added successfully");
-        setFormData({
-          hospital_id: "",
-          ambulance_type: "basic",
-          vehicle_number: "",
-          price_per_km: "",
-        });
-      } else {
-        alert(data.message || "❌ Failed to add ambulance");
-      }
+      toast.success("🚑 Ambulance added successfully");
+
+      setFormData({
+        hospital_id: "",
+        ambulance_type: "basic",
+        vehicle_number: "",
+        price_per_km: "",
+      });
     } catch (error) {
       console.error("❌ Add ambulance error:", error);
       alert("Error occurred while adding ambulance.");
@@ -245,14 +186,8 @@ const OperatorDashboard = () => {
     const fetchAmbulanceRequests = async () => {
       if (activeTab === "manageAmbulances") {
         try {
-          const res = await fetch(
-            "http://localhost:4000/api/ambulance-bookings/operator",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          const data = await res.json();
-          setAmbulanceRequests(data.data || []);
+          const res = await API.get("/api/ambulance-bookings/operator");
+          setAmbulanceRequests(res.data.data || []);
         } catch (err) {
           console.error("❌ Error fetching ambulance requests", err);
         }
@@ -264,26 +199,11 @@ const OperatorDashboard = () => {
 
   const handleUpdateAmbulanceStatus = async (bookingId, status) => {
     try {
-      const res = await fetch(
-        `http://localhost:4000/api/ambulance-bookings/${bookingId}/status`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status }),
-        }
-      );
+      await API.patch(`/api/ambulance-bookings/${bookingId}/status`, { status });
 
-      const data = await res.json();
-      if (res.ok) {
-        alert(`Booking ${status} successfully`);
-        // Refresh the list
-        setAmbulanceRequests((prev) => prev.filter((b) => b._id !== bookingId));
-      } else {
-        alert(data.message || "❌ Failed to update status");
-      }
+      alert(`Booking ${status} successfully`);
+
+      setAmbulanceRequests((prev) => prev.filter((b) => b._id !== bookingId));
     } catch (error) {
       console.error("❌ Error updating status:", error);
     }
@@ -299,28 +219,12 @@ const OperatorDashboard = () => {
     if (activeTab === "history") {
       try {
         const [bedRes, ambRes] = await Promise.all([
-          fetch("http://localhost:4000/api/bookings/operator/history", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch("http://localhost:4000/api/ambulance-bookings/operator/history", {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
+        API.get("/api/bookings/operator/history"),
+        API.get("/api/ambulance-bookings/operator/history"),
         ]);
 
-        const bedData = await bedRes.json();
-        const ambData = await ambRes.json();
-
-        if (bedRes.ok) {
-          setBedHistory(bedData.data || []);
-        } else {
-          toast.error("Failed to load bed history");
-        }
-
-        if (ambRes.ok) {
-          setAmbulanceHistory(ambData.data || []);
-        } else {
-          toast.error("Failed to load ambulance history");
-        }
+        setBedHistory(bedRes.data.data || []);
+        setAmbulanceHistory(ambRes.data.data || []);
       } catch (err) {
         console.error("Error fetching history:", err);
         toast.error("Error fetching history");
@@ -518,44 +422,28 @@ const OperatorDashboard = () => {
           return;
         }
         try {
-          const res = await fetch(
-            "http://localhost:4000/api/hospitals",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                name,
-                address,
-                city,
-                contact_number: contact,
-                specialization_offered: specialization
-                  .split(",")
-                  .map((s) => s.trim()),
-                latitude: parseFloat(latitude),
-                longitude: parseFloat(longitude),
-              }),
-            }
-          );
-          const data = await res.json();
-          if (res.ok) {
-            toast.success("✅ Hospital submitted for approval!"); // --- NEW: Using toast ---
-            // Clear form
-            setName("");
-            setAddress("");
-            setCity("");
-            setContact("");
-            setSpecialization("");
-            setLatitude("");
-            setLongitude("");
-          } else {
-            toast.error("❌ Submission failed: " + data.message); // --- NEW: Using toast ---
-          }
+          const res = await API.post("/api/hospitals", {
+            name,
+            address,
+            city,
+            contact_number: contact,
+            specialization_offered: specialization.split(",").map(s => s.trim()),
+            latitude: parseFloat(latitude),
+            longitude: parseFloat(longitude),
+          });
+
+          toast.success("✅ Hospital submitted for approval!");
+
+          setName("");
+          setAddress("");
+          setCity("");
+          setContact("");
+          setSpecialization("");
+          setLatitude("");
+          setLongitude("");
+
         } catch (err) {
-          console.error("Error submitting hospital:", err);
-          toast.error("❌ Something went wrong"); // --- NEW: Using toast ---
+          toast.error(err.response?.data?.message || "❌ Submission failed");
         }
       }}
     >
@@ -657,32 +545,23 @@ const OperatorDashboard = () => {
           quantity: parseInt(quantity),
         };
         try {
-          const res = await fetch("http://localhost:4000/api/beds", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(formWithQuantity),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            toast.success("✅ Bed added successfully"); // --- NEW: Using toast ---
-            setBedForm({
-              hospital_id: "",
-              bed_type: "",
-              quantity: "",
-              is_available: true,
-              price_per_day: "",
-            });
-            setQuantity("");
-          } else {
-            toast.error(data.message || "❌ Failed to add bed"); // --- NEW: Using toast ---
-          }
-        } catch (err) {
-          console.error("Error submitting bed:", err);
-          toast.error("❌ An error occurred"); // --- NEW: Using toast ---
-        }
+        const res = await API.post("/api/beds", formWithQuantity);
+
+        toast.success("✅ Bed added successfully");
+
+        setBedForm({
+          hospital_id: "",
+          bed_type: "",
+          quantity: "",
+          is_available: true,
+          price_per_day: "",
+        });
+        setQuantity("");
+
+      } catch (err) {
+        toast.error(err.response?.data?.message || "❌ Failed to add bed");
+      }
+
       }}
       className="space-y-4"
     >
@@ -864,26 +743,8 @@ const OperatorDashboard = () => {
         // --- YOUR FUNCTIONALITY (UNCHANGED) ---
         e.preventDefault();
         try {
-          const res = await fetch("http://localhost:4000/api/ambulances", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(formData),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            toast.success("✅ Ambulance added successfully"); // --- NEW: Using toast ---
-            setFormData({
-              hospital_id: "",
-              ambulance_type: "basic",
-              vehicle_number: "",
-              price_per_km: "",
-            });
-          } else {
-            toast.error(data.message || "❌ Failed to add ambulance"); // --- NEW: Using toast ---
-          }
+          const res = await API.post("/api/ambulances", formData);
+          toast.success("🚑 Ambulance added successfully");
         } catch (error) {
           console.error("❌ Add ambulance error:", error);
           toast.error("Error occurred while adding ambulance."); // --- NEW: Using toast ---
