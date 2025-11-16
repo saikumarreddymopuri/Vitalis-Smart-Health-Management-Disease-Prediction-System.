@@ -26,6 +26,11 @@ const UserDashboard = () => {
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [prediction, setPrediction] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // coldstart popup states
+  const [showColdStart, setShowColdStart] = useState(false);
+  const [coldStartTimer, setColdStartTimer] = useState(null);
+
    
 
   //history of predictions
@@ -982,98 +987,123 @@ const UserDashboard = () => {
 
     {/* --- THIS IS THE FIX --- */}
     {/* --- I HAVE PASTED YOUR ORIGINAL onClick LOGIC BACK IN --- */}
-    <button
-      onClick={async () => {
-        if (selectedSymptoms.length < 2) {
-          toast.error("Please select at least 2 symptoms.");
-          return;
-        }
-        setLoading(true);
-        try {
-          const predictRes = await API.post(
-            "/api/symptoms/predict",
-            
-            
-            { symptoms: selectedSymptoms }
-          );
-          console.log(selectedSymptoms);
-          const predictedDisease = predictRes.data.data.predicted_disease;
-          setPrediction(predictedDisease);
+    {/* Small Note Box */}
+{selectedSymptoms.length < 2 && (
+  <div className="text-yellow-300 bg-yellow-600/20 border border-yellow-500/40 px-4 py-2 rounded-lg text-sm mb-3">
+    ⚠️ Please select at least <b>2 symptoms</b> to get an accurate prediction.
+  </div>
+)}
 
-          // Fetch nearby hospitals based on geolocation
+<button
+  onClick={async () => {
+    if (selectedSymptoms.length < 2) {
+      toast.error("Please select at least 2 symptoms.");
+      return;
+    }
 
+    setLoading(true);
 
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              const { latitude, longitude } = position.coords;
-              setUserLocation({ latitude, longitude });
-              const token = localStorage.getItem("token");
-              if (!token) {
-                console.error("❌ No token found in localStorage!");
-                return;
-              }
-              try {
-                  const hospitalsRes = await API.get(
-                    `/api/hospitals/nearby-by-disease`,
-                    {
-                      params: {
-                        disease: predictedDisease.toLowerCase(),
-                        userLat: latitude,
-                        userLng: longitude,
-                      },
-                    }
-                  );
+    // ⭐ Start 3-second cold-start timer
+    const timer = setTimeout(() => {
+      setShowColdStart(true);
+    }, 3000);
+    setColdStartTimer(timer);
 
-                  setNearbyHospitals(hospitalsRes.data.data || []);
-                } catch (err) {
-                  console.error("Nearby hospital fetch error:", err);
-                }
+    try {
+      const predictRes = await API.post(
+        "/api/symptoms/predict",
+        { symptoms: selectedSymptoms }
+      );
 
-              },
-            (err) => {
-              console.error("Geolocation error:", err);
-              toast.error(
-                "Please allow location access to find nearby hospitals."
-              );
-            }
-          );
+      console.log(selectedSymptoms);
+      const predictedDisease = predictRes.data.data.predicted_disease;
+      setPrediction(predictedDisease);
+
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ latitude, longitude });
           const token = localStorage.getItem("token");
           if (!token) {
-            console.warn("⚠️ No token found. Cannot save prediction.");
+            console.error("❌ No token found in localStorage!");
             return;
           }
 
+          try {
+            const hospitalsRes = await API.get(
+              `/api/hospitals/nearby-by-disease`,
+              {
+                params: {
+                  disease: predictedDisease.toLowerCase(),
+                  userLat: latitude,
+                  userLng: longitude,
+                },
+              }
+            );
 
-          await API.post("/api/symptoms", {
-          symptom_list: selectedSymptoms,
-          predicted_disease: predictedDisease,
-        });
-
-        } catch (err) {
-          console.error("❌ Error in prediction or saving:", err);
-        } finally {
-          setLoading(false);
+            setNearbyHospitals(hospitalsRes.data.data || []);
+          } catch (err) {
+            console.error("Nearby hospital fetch error:", err);
+          }
+        },
+        (err) => {
+          console.error("Geolocation error:", err);
+          toast.error(
+            "Please allow location access to find nearby hospitals."
+          );
         }
-      }}
-      className={`w-full flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg font-semibold transition-all
-                  shadow-[0_0_15px_rgba(34,197,94,0.6)] hover:shadow-[0_0_25px_rgba(34,197,94,0.9)]
-                  hover:bg-green-500
-                  ${
-                    loading || selectedSymptoms.length < 2
-                      ? "opacity-50 cursor-not-allowed"
-                      : ""
-                  }`}
-      disabled={loading || selectedSymptoms.length < 2}
-    >
-      {loading ? (
-        "Analyzing..."
-      ) : (
-        <>
-          <HiOutlineBeaker className="w-5 h-5" />
-          Predict Disease
-        </>
-      )}
-    </button>
+      );
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.warn("⚠️ No token found. Cannot save prediction.");
+        return;
+      }
+
+      await API.post("/api/symptoms", {
+        symptom_list: selectedSymptoms,
+        predicted_disease: predictedDisease,
+      });
+
+    } catch (err) {
+      console.error("❌ Error in prediction or saving:", err);
+
+    } finally {
+      setLoading(false);
+
+      // ⭐ Stop timer + hide popup
+      if (coldStartTimer) clearTimeout(coldStartTimer);
+      setShowColdStart(false);
+    }
+  }}
+  className={`w-full flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg font-semibold transition-all
+              shadow-[0_0_15px_rgba(34,197,94,0.6)] hover:shadow-[0_0_25px_rgba(34,197,94,0.9)]
+              hover:bg-green-500
+              ${
+                loading || selectedSymptoms.length < 2
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+  disabled={loading || selectedSymptoms.length < 2}
+>
+  Predict Disease
+</button>
+
+{/* ⭐ Cold Start Popup */}
+{showColdStart && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
+    <div className="bg-gray-900/80 border border-blue-500/40 p-6 rounded-xl shadow-xl text-center w-80">
+      <h2 className="text-xl font-semibold text-blue-300 mb-2">
+        ⚡ Server Waking Up
+      </h2>
+      <p className="text-gray-300 text-sm">
+        The prediction engine is starting (cold start).  
+        Please wait a moment...
+      </p>
+    </div>
+  </div>
+)}
+
     {/* --- END OF FIX --- */}
 
     {/* Styled Prediction Result */}
