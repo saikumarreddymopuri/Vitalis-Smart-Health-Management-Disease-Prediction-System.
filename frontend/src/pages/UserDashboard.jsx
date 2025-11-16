@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useRef } from "react";
 import API from "../utils/api";
 
 import Header from "../components/layout/Header.jsx";
@@ -29,7 +29,8 @@ const UserDashboard = () => {
 
   // coldstart popup states
   const [showColdStart, setShowColdStart] = useState(false);
-  const [coldStartTimer, setColdStartTimer] = useState(null);
+  const coldStartTimer = useRef(null);
+
 
    
 
@@ -1002,32 +1003,35 @@ const UserDashboard = () => {
     }
 
     setLoading(true);
+    setShowColdStart(false); // reset popup first
 
-    // ⭐ Start 3-second cold-start timer
-    const timer = setTimeout(() => {
+    // 🔥 Start cold-start timer (3 sec delay)
+    coldStartTimer.current = setTimeout(() => {
       setShowColdStart(true);
     }, 3000);
-    setColdStartTimer(timer);
 
     try {
-      const predictRes = await API.post(
-        "/api/symptoms/predict",
-        { symptoms: selectedSymptoms }
-      );
+      const predictRes = await API.post("/api/symptoms/predict", {
+        symptoms: selectedSymptoms,
+      });
 
-      console.log(selectedSymptoms);
       const predictedDisease = predictRes.data.data.predicted_disease;
       setPrediction(predictedDisease);
 
+      // 🌟 Clear popup as soon as success arrives
+      clearTimeout(coldStartTimer.current);
+      setShowColdStart(false);
+
+      // -------------------
+      // FETCH HOSPITALS
+      // -------------------
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
           setUserLocation({ latitude, longitude });
+
           const token = localStorage.getItem("token");
-          if (!token) {
-            console.error("❌ No token found in localStorage!");
-            return;
-          }
+          if (!token) return;
 
           try {
             const hospitalsRes = await API.get(
@@ -1048,42 +1052,37 @@ const UserDashboard = () => {
         },
         (err) => {
           console.error("Geolocation error:", err);
-          toast.error(
-            "Please allow location access to find nearby hospitals."
-          );
+          toast.error("Please allow location access to find nearby hospitals.");
         }
       );
 
+      // SAVE PREDICTION
       const token = localStorage.getItem("token");
-      if (!token) {
-        console.warn("⚠️ No token found. Cannot save prediction.");
-        return;
+      if (token) {
+        await API.post("/api/symptoms", {
+          symptom_list: selectedSymptoms,
+          predicted_disease: predictedDisease,
+        });
       }
-
-      await API.post("/api/symptoms", {
-        symptom_list: selectedSymptoms,
-        predicted_disease: predictedDisease,
-      });
-
     } catch (err) {
       console.error("❌ Error in prediction or saving:", err);
 
+      // 💥 Make sure popup hides even on error
+      clearTimeout(coldStartTimer.current);
+      setShowColdStart(false);
     } finally {
       setLoading(false);
 
-      // ⭐ Stop timer + hide popup
-      if (coldStartTimer) clearTimeout(coldStartTimer);
+      // 💥 Ensure popup is hidden after everything finishes
+      clearTimeout(coldStartTimer.current);
       setShowColdStart(false);
     }
   }}
   className={`w-full flex items-center justify-center gap-2 py-3 bg-green-600 text-white rounded-lg font-semibold transition-all
-              shadow-[0_0_15px_rgba(34,197,94,0.6)] hover:shadow-[0_0_25px_rgba(34,197,94,0.9)]
-              hover:bg-green-500
-              ${
-                loading || selectedSymptoms.length < 2
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
+    shadow-[0_0_15px_rgba(34,197,94,0.6)] hover:shadow-[0_0_25px_rgba(34,197,94,0.9)]
+    hover:bg-green-500
+    ${loading || selectedSymptoms.length < 2 ? "opacity-50 cursor-not-allowed" : ""}
+  `}
   disabled={loading || selectedSymptoms.length < 2}
 >
   Predict Disease
@@ -1091,18 +1090,18 @@ const UserDashboard = () => {
 
 {/* ⭐ Cold Start Popup */}
 {showColdStart && (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-50">
-    <div className="bg-gray-900/80 border border-blue-500/40 p-6 rounded-xl shadow-xl text-center w-80">
-      <h2 className="text-xl font-semibold text-blue-300 mb-2">
+  <div className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50">
+    <div className="bg-gray-900 p-6 rounded-xl border border-blue-500/40 shadow-xl text-center">
+      <h3 className="text-xl font-semibold text-blue-300 flex items-center gap-2 justify-center">
         ⚡ Server Waking Up
-      </h2>
-      <p className="text-gray-300 text-sm">
-        The prediction engine is starting (cold start).  
-        Please wait a moment...
+      </h3>
+      <p className="text-gray-300 mt-2">
+        The prediction engine is starting (cold start). Please wait a moment...
       </p>
     </div>
   </div>
 )}
+
 
     {/* --- END OF FIX --- */}
 
