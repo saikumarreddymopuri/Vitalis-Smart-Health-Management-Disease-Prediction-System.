@@ -54,7 +54,7 @@ export const registerUser = asyncHandler(async (req, res) => {
   // --- END OF FIX ---
 
   // Send verification email
-  await sendVerificationEmail(user.email, verificationLink);
+  await sendVerificationEmail(user.email, user.username, verificationLink);
 
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken"
