@@ -9,16 +9,17 @@
   <img src="https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge" alt="Version">
 </p>
 
-
+---
 **An AI-Powered Integrated Healthcare Ecosystem for Real-Time Medical Assistance.**
 
 Vitalis is a sophisticated, role-based healthcare platform that bridges the gap between AI-driven diagnosis and emergency resource management. It integrates a custom Machine Learning engine with a real-time hospital resource tracking system to provide an end-to-end digital health solution.
 
+---
 ### 🌐 Live Deployment
 * **Live Application:** [Explore here](https://vitalis-front-liart.vercel.app/)
 
-
-### 🔑 Demo Credentials (Quick Access)
+---
+## 🔑 Demo Credentials (Quick Access)
 
 
 | Role | Email | Password | Access Level |
@@ -91,6 +92,7 @@ Unlike standard health tracking apps, Vitalis is architected as a complete healt
 ## 👤 Author
 **MOPURI SAIKUMAR REDDY** 
 
+---
 ## 🤝 Connect with Me
 
 <div align="left">
